@@ -171,6 +171,42 @@ Expected outcome:
 2. broker fields are present when target host is parsed
 3. no credential values are present in any metadata field
 
+## 7.2) Phase 2 Predicate Checks (Lineage + Intent Guardrails)
+
+Enable deterministic preflight predicates in your test shell:
+
+```bash
+export THOTH_BLOCKED_LINEAGE_ANCESTOR_TOKENS="openclaw,banned_mcp"
+export THOTH_BLOCKED_LINEAGE_UPSTREAM_BINARIES="openclaw"
+export THOTH_INTENT_TOOL_ALLOWLIST="calendar_management=read_calendar|list_events,ticket_triage=create_ticket|update_ticket"
+```
+
+Then validate:
+
+1. calls with blocked lineage ancestry return `BLOCK` with reason `lineage_ancestor_blocked`
+2. calls with blocked upstream binary return `BLOCK` with reason `lineage_upstream_binary_blocked`
+3. calls outside configured session-intent tool allowlist return `BLOCK` with reason `tool_not_allowed_for_session_intent`
+
+Evidence query:
+
+```bash
+curl -sS -H "$AUTH" "${BASE}/violations?limit=200" | jq -r '
+  .items[]? // .[]? |
+  select(
+    (.metadata.decision_reason_code // "") == "lineage_ancestor_blocked" or
+    (.metadata.decision_reason_code // "") == "lineage_upstream_binary_blocked" or
+    (.metadata.decision_reason_code // "") == "tool_not_allowed_for_session_intent"
+  ) |
+  {
+    event_id: (.event_id // .id // "n/a"),
+    reason: (.metadata.decision_reason_code // "missing"),
+    lineage_hash: (.metadata.lineage_hash // "missing"),
+    lineage_upstream_binary: (.metadata.lineage_upstream_binary // "missing"),
+    session_intent: (.session_intent // .metadata.session_intent // "missing"),
+    tool_name: (.tool_name // "missing")
+  }'
+```
+
 ## 8) Pass/Fail Criteria
 
 Pre-POC passes if:
