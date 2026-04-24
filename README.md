@@ -7,6 +7,7 @@ Operational runbooks for Thoth headless deployments and integrations.
 - `siem/` — ingestion, routing, and alert enrichment runbooks
 - `pam/` — step-up and approval-control runbooks
 - `soar/` — incident orchestration runbooks
+- `onboarding/` — headless pre-POC and operator onboarding runbooks
 
 ## Audience
 
