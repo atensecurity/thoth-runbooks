@@ -139,6 +139,38 @@ Capture per scenario:
 4. policy reference
 5. evidence/event identifier
 
+## 7.1) Phase 1 Metadata Checks (Lineage + Broker)
+
+For each blocked/stepped-up request, verify the event metadata includes:
+
+1. `process_lineage.ancestor_hash` and top-level `lineage_hash`
+2. `process_lineage.parent_pid` and top-level `lineage_parent_pid`
+3. `secrets_broker.request_id` and top-level `broker_request_id`
+4. `secrets_broker.target_host` and top-level `broker_destination_host`
+5. `secrets_broker.injection_eligible` and `secrets_broker.host_allowed`
+
+Quick check:
+
+```bash
+curl -sS -H "$AUTH" "${BASE}/violations?limit=200" | jq -r '
+  .items[]? // .[]? |
+  {
+    event_id: (.event_id // .id // "n/a"),
+    lineage_hash: (.metadata.lineage_hash // "missing"),
+    lineage_parent_pid: (.metadata.lineage_parent_pid // "missing"),
+    broker_request_id: (.metadata.broker_request_id // "missing"),
+    broker_destination_host: (.metadata.broker_destination_host // "missing"),
+    broker_host_allowed: (.metadata.secrets_broker.host_allowed // "missing"),
+    broker_eligible: (.metadata.secrets_broker.injection_eligible // "missing")
+  }'
+```
+
+Expected outcome:
+
+1. all runtime-governed tool-call events include lineage fields
+2. broker fields are present when target host is parsed
+3. no credential values are present in any metadata field
+
 ## 8) Pass/Fail Criteria
 
 Pre-POC passes if:
@@ -157,4 +189,3 @@ Promote successful scenarios into a formal pilot acceptance matrix:
 3. evidence retrieval requirement
 4. SIEM/PAM routing requirement
 5. owner sign-off
-
