@@ -72,7 +72,7 @@ tenant org.
 ### Default customer flow (no WorkOS secrets on operator machine)
 Do not distribute identity-provider service secrets to customer operators.
 
-`thothctl auth login` uses brokered auth by default:
+`thothctl auth login` is the required auth path:
 
 1. `POST /:tenant-id/thoth/auth/cli/start` to get signed state + authorize URL
 2. browser sign-in
@@ -83,31 +83,21 @@ Do not distribute identity-provider service secrets to customer operators.
 ```bash
 thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
-  --customer-domain "<customer-domain>" \
+  --admin-email "<admin@customer-domain>" \
   --apex-domain "$THOTH_APEX_DOMAIN" \
   --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
 
-`--admin-email "<admin@customer-domain>"` can be used instead of
-`--customer-domain`.
+Optional: add `--customer-domain "<customer-domain>"` if you need to override
+the domain inferred from `--admin-email`.
 
 Optional non-interactive mode (pre-captured auth code):
 
 ```bash
 thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
-  --customer-domain "<customer-domain>" \
+  --admin-email "<admin@customer-domain>" \
   --auth-code "<auth-code>" \
-  --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
-```
-
-### Import mode (if a short-lived token is provided directly)
-
-```bash
-thothctl auth login \
-  --tenant-id "$THOTH_TENANT_ID" \
-  --admin-bearer-token "$THOTH_ADMIN_BEARER_TOKEN" \
   --apex-domain "$THOTH_APEX_DOMAIN" \
   --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
@@ -121,6 +111,12 @@ Token requirements:
 1. `org_id` matches tenant WorkOS org.
 2. role includes admin privileges (`role`, `org_role`, or `thoth_role`).
 3. token is unexpired (`exp`).
+
+Default operator session behavior:
+
+1. Once authenticated, admins can continue operations with the minted token.
+2. Sensitive admin actions use a default freshness window of 6 hours.
+3. After token expiry (or stale step-up), re-run `thothctl auth login`.
 
 ## 4) Headless Sanity Checks
 
