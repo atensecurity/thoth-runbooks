@@ -61,12 +61,12 @@ Set your environment values:
 export THOTH_TENANT_ID="<tenant-id>"
 export THOTH_APEX_DOMAIN="<apex-domain>"
 export THOTH_GOVAPI_BASE="https://govapi.${THOTH_TENANT_ID}.${THOTH_APEX_DOMAIN}"
-export THOTH_ADMIN_BEARER_TOKEN_FILE="/path/to/admin-token.jwt"
+export THOTH_AUTH_SESSION_FILE="/path/to/thoth-admin-session.jwt"
 ```
 
 ## 3.1) Authenticate `thothctl` as an Admin
 
-Run `thothctl auth login` once to create the local admin token file used by
+Run `thothctl auth login` once to create a local auth session file used by
 follow-up CLI commands.
 
 ```bash
@@ -74,7 +74,7 @@ thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
   --admin-email "<admin@customer-domain>" \
   --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
+  --auth-token-file "$THOTH_AUTH_SESSION_FILE"
 ```
 
 Optional: add `--customer-domain "<customer-domain>"` if the domain should be
@@ -88,12 +88,12 @@ thothctl auth login \
   --admin-email "<admin@customer-domain>" \
   --auth-code "<auth-code>" \
   --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
+  --auth-token-file "$THOTH_AUTH_SESSION_FILE"
 ```
 
 Session behavior:
 
-1. Once authenticated, admins can continue operations with the saved token.
+1. Once authenticated, admins can continue operations with the saved session.
 2. Sensitive admin actions use a default freshness window of 6 hours.
 3. After token expiry (or stale step-up), re-run `thothctl auth login`.
 
@@ -103,7 +103,7 @@ Session behavior:
 thothctl settings get \
   --tenant-id "$THOTH_TENANT_ID" \
   --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE" \
+  --auth-token-file "$THOTH_AUTH_SESSION_FILE" \
   --json
 ```
 
@@ -111,7 +111,7 @@ thothctl settings get \
 thothctl browser providers list \
   --tenant-id "$THOTH_TENANT_ID" \
   --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE" \
+  --auth-token-file "$THOTH_AUTH_SESSION_FILE" \
   --json
 ```
 
@@ -119,7 +119,7 @@ thothctl browser providers list \
 thothctl mdm list \
   --tenant-id "$THOTH_TENANT_ID" \
   --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE" \
+  --auth-token-file "$THOTH_AUTH_SESSION_FILE" \
   --json
 ```
 
@@ -159,7 +159,7 @@ Expected outcomes:
 ## 7) Verify Evidence (API-first)
 
 ```bash
-AUTH="Authorization: Bearer $(cat "$THOTH_ADMIN_BEARER_TOKEN_FILE")"
+AUTH="Authorization: Bearer $(cat "$THOTH_AUTH_SESSION_FILE")"
 BASE="${THOTH_GOVAPI_BASE}/${THOTH_TENANT_ID}/thoth"
 
 curl -sS -H "$AUTH" "${BASE}/violations?limit=50" | jq .
