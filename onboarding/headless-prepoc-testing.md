@@ -65,11 +65,9 @@ export THOTH_GOVAPI_BASE="https://govapi.${THOTH_TENANT_ID}.${THOTH_APEX_DOMAIN}
 export THOTH_ADMIN_BEARER_TOKEN_FILE="/path/to/admin-token.jwt"
 ```
 
-Environment apex domains:
+Production apex domain:
 
-1. dev: `cawlo.dev`
-2. staging: `nommos.space`
-3. prod: `atensecurity.com`
+1. `atensecurity.com`
 
 ## 3.1) Generate the admin token used by `thothctl`
 
