@@ -72,10 +72,11 @@ follow-up CLI commands.
 ```bash
 thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
-  --admin-email "<admin@customer-domain>" \
-  --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_AUTH_SESSION_FILE"
+  --admin-email "<admin@customer-domain>"
 ```
+
+`--apex-domain` and `--auth-token-file` are optional overrides. Defaults are
+`atensecurity.com` and `~/.thoth/admin-token.jwt`.
 
 Optional: add `--customer-domain "<customer-domain>"` if the domain should be
 different from the domain in `--admin-email`.
@@ -86,9 +87,7 @@ If you already have an auth code, use non-interactive mode:
 thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
   --admin-email "<admin@customer-domain>" \
-  --auth-code "<auth-code>" \
-  --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_AUTH_SESSION_FILE"
+  --auth-code "<auth-code>"
 ```
 
 Session behavior:
@@ -102,24 +101,18 @@ Session behavior:
 ```bash
 thothctl settings get \
   --tenant-id "$THOTH_TENANT_ID" \
-  --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_AUTH_SESSION_FILE" \
   --json
 ```
 
 ```bash
 thothctl browser providers list \
   --tenant-id "$THOTH_TENANT_ID" \
-  --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_AUTH_SESSION_FILE" \
   --json
 ```
 
 ```bash
 thothctl mdm list \
   --tenant-id "$THOTH_TENANT_ID" \
-  --apex-domain "$THOTH_APEX_DOMAIN" \
-  --auth-token-file "$THOTH_AUTH_SESSION_FILE" \
   --json
 ```
 
