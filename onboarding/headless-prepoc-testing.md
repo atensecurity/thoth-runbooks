@@ -3,9 +3,8 @@
 Audience: customer security operators running first validation of Thoth with local agent workflows  
 Mode: headless-first (API/CLI-driven), production-isolated tenant
 
-> This is the standard runbook for all external customer sandboxes and pilots.
-> Delta Arc is the first production customer sandbox using this flow, and the
-> same steps apply to Rightway, Reddit, and future tenants.
+> Public runbook: keep all tenant values, domains, keys, and user data
+> redacted. Do not commit live credentials or customer identifiers.
 
 ## Goal
 
@@ -65,54 +64,29 @@ export THOTH_GOVAPI_BASE="https://govapi.${THOTH_TENANT_ID}.${THOTH_APEX_DOMAIN}
 export THOTH_ADMIN_BEARER_TOKEN_FILE="/path/to/admin-token.jwt"
 ```
 
-Production apex domain:
-
-1. `atensecurity.com`
-
 ## 3.1) Generate the admin token used by `thothctl`
 
-`thothctl` admin operations require a valid WorkOS access token with admin role
-for the target tenant org.
+`thothctl` admin operations require a valid admin bearer token for the target
+tenant org.
 
-### Recommended model for external customer pilots
+### Default customer flow (no WorkOS secrets on operator machine)
+Do not distribute identity-provider service secrets to customer operators.
 
-Aten issues a short-lived admin JWT for the customer sandbox and sends it
-securely (1Password/shared secret). Customers do not need WorkOS API keys.
+`thothctl auth login` uses brokered auth by default:
 
-```bash
-mkdir -p "$(dirname "$THOTH_ADMIN_BEARER_TOKEN_FILE")"
-chmod 700 "$(dirname "$THOTH_ADMIN_BEARER_TOKEN_FILE")"
-# write token to file, then:
-chmod 600 "$THOTH_ADMIN_BEARER_TOKEN_FILE"
-```
-
-### Self-service model (operator-run) for any tenant
-
-Use this only if you operate the WorkOS app credentials for the environment.
-
-1. Set WorkOS values:
-
-```bash
-export WORKOS_CLIENT_ID="<client_id>"
-export WORKOS_API_KEY="<api_key>"
-```
-
-By default, `thothctl auth login` uses the hosted callback:
-`https://auth.atensecurity.com/cli/callback`.
-Override with `WORKOS_REDIRECT_URI` only when needed.
-
-2. Generate and validate the admin token directly with `thothctl`:
+1. `POST /:tenant-id/thoth/auth/cli/start` to get signed state + authorize URL
+2. browser sign-in
+3. `POST /:tenant-id/thoth/auth/cli/exchange` to mint admin token
+4. token verification via `/:tenant-id/thoth/auth/check`
+5. token persisted to `--auth-token-file`
 
 ```bash
 thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
   --customer-domain "<customer-domain>" \
+  --apex-domain "$THOTH_APEX_DOMAIN" \
   --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
-
-`thothctl` will open a WorkOS authorize URL. After sign-in, WorkOS redirects to
-`https://auth.atensecurity.com/cli/callback`, which displays the authorization
-code to paste back into the terminal prompt.
 
 `--admin-email "<admin@customer-domain>"` can be used instead of
 `--customer-domain`.
@@ -124,8 +98,23 @@ thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
   --customer-domain "<customer-domain>" \
   --auth-code "<auth-code>" \
+  --apex-domain "$THOTH_APEX_DOMAIN" \
   --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
+
+### Import mode (if a short-lived token is provided directly)
+
+```bash
+thothctl auth login \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --admin-bearer-token "$THOTH_ADMIN_BEARER_TOKEN" \
+  --apex-domain "$THOTH_APEX_DOMAIN" \
+  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
+```
+
+### Internal fallback (non-public)
+Internal break-glass auth procedures are intentionally omitted from this public
+runbook.
 
 Token requirements:
 
@@ -211,73 +200,19 @@ Capture per scenario:
 4. policy reference
 5. evidence/event identifier
 
-## 7.1) Phase 1 Metadata Checks (Lineage + Broker)
+## 7.1) Advanced Metadata Checks
 
-For each blocked/stepped-up request, verify the event metadata includes:
+For each blocked or stepped-up request, verify metadata includes:
 
-1. `process_lineage.ancestor_hash` and top-level `lineage_hash`
-2. `process_lineage.parent_pid` and top-level `lineage_parent_pid`
-3. `secrets_broker.request_id` and top-level `broker_request_id`
-4. `secrets_broker.target_host` and top-level `broker_destination_host`
-5. `secrets_broker.injection_eligible` and `secrets_broker.host_allowed`
-
-Quick check:
-
-```bash
-curl -sS -H "$AUTH" "${BASE}/violations?limit=200" | jq -r '
-  .items[]? // .[]? |
-  {
-    event_id: (.event_id // .id // "n/a"),
-    lineage_hash: (.metadata.lineage_hash // "missing"),
-    lineage_parent_pid: (.metadata.lineage_parent_pid // "missing"),
-    broker_request_id: (.metadata.broker_request_id // "missing"),
-    broker_destination_host: (.metadata.broker_destination_host // "missing"),
-    broker_host_allowed: (.metadata.secrets_broker.host_allowed // "missing"),
-    broker_eligible: (.metadata.secrets_broker.injection_eligible // "missing")
-  }'
-```
+1. execution lineage fields
+2. broker/request correlation identifiers when applicable
+3. policy decision reason details
 
 Expected outcome:
 
-1. all runtime-governed tool-call events include lineage fields
-2. broker fields are present when target host is parsed
-3. no credential values are present in any metadata field
-
-## 7.2) Phase 2 Predicate Checks (Lineage + Intent Guardrails)
-
-Enable deterministic preflight predicates in your test shell:
-
-```bash
-export THOTH_BLOCKED_LINEAGE_ANCESTOR_TOKENS="openclaw,banned_mcp"
-export THOTH_BLOCKED_LINEAGE_UPSTREAM_BINARIES="openclaw"
-export THOTH_INTENT_TOOL_ALLOWLIST="calendar_management=read_calendar|list_events,ticket_triage=create_ticket|update_ticket"
-```
-
-Then validate:
-
-1. calls with blocked lineage ancestry return `BLOCK` with reason `lineage_ancestor_blocked`
-2. calls with blocked upstream binary return `BLOCK` with reason `lineage_upstream_binary_blocked`
-3. calls outside configured session-intent tool allowlist return `BLOCK` with reason `tool_not_allowed_for_session_intent`
-
-Evidence query:
-
-```bash
-curl -sS -H "$AUTH" "${BASE}/violations?limit=200" | jq -r '
-  .items[]? // .[]? |
-  select(
-    (.metadata.decision_reason_code // "") == "lineage_ancestor_blocked" or
-    (.metadata.decision_reason_code // "") == "lineage_upstream_binary_blocked" or
-    (.metadata.decision_reason_code // "") == "tool_not_allowed_for_session_intent"
-  ) |
-  {
-    event_id: (.event_id // .id // "n/a"),
-    reason: (.metadata.decision_reason_code // "missing"),
-    lineage_hash: (.metadata.lineage_hash // "missing"),
-    lineage_upstream_binary: (.metadata.lineage_upstream_binary // "missing"),
-    session_intent: (.session_intent // .metadata.session_intent // "missing"),
-    tool_name: (.tool_name // "missing")
-  }'
-```
+1. runtime-governed events include lineage and decision context
+2. correlation fields exist for brokered calls
+3. no secret material is logged in clear text
 
 ## 8) Pass/Fail Criteria
 

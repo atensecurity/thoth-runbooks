@@ -2,6 +2,13 @@
 
 Operational runbooks for Thoth headless deployments and integrations.
 
+## Public Safety Rules
+
+- Never include live customer names, tenant IDs, domains, or emails.
+- Never include real secrets, tokens, API keys, callback secrets, or JWTs.
+- Use placeholders for all environment-specific values.
+- Keep internal break-glass or privileged operator procedures out of this repo.
+
 ## Contents
 
 - `siem/` — ingestion, routing, and alert enrichment runbooks
