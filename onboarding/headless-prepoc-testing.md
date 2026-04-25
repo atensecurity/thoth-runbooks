@@ -6,7 +6,7 @@ Mode: headless-first (API/CLI-driven), production-isolated tenant
 > Public runbook: keep all tenant values, domains, keys, and user data
 > redacted. Do not commit live credentials or customer identifiers.
 
-## Goal
+## What This Runbook Proves
 
 Validate that Thoth can:
 
@@ -14,7 +14,7 @@ Validate that Thoth can:
 2. emit evidence that is machine-readable and exportable
 3. integrate into existing security operations without requiring a net-new console
 
-## Why this runbook exists
+## Why This Exists
 
 Security teams need empirical proof before a formal pilot:
 
@@ -22,28 +22,28 @@ Security teams need empirical proof before a formal pilot:
 2. Can we retrieve evidence quickly for review?
 3. Can we operate through API/CLI and existing SIEM/PAM workflows?
 
-This runbook answers those questions with reproducible tests.
+This runbook gives you a repeatable way to test all three.
 
 ## 1) Provision an Isolated Tenant
 
-Use a dedicated production-isolated tenant for the pre-POC.
+Use a dedicated tenant that is isolated from normal production workflows.
 
 Minimum controls:
 
 1. tenant-scoped credentials only
-2. explicit time-box for test window
+2. explicit test window (start/end time)
 3. retained evidence after tenant disablement for audit/review
-4. revocation path for all issued keys
+4. clear key revocation path
 
 ## 2) Access Model
 
-Issue scoped credentials for three functions:
+Use scoped credentials for three functions:
 
 1. decisioning path (agent runtime calls)
 2. policy administration (policy read/write for this tenant)
 3. evidence readback (audit/evidence retrieval)
 
-Do not use shared org-wide or environment-wide credentials.
+Avoid shared org-wide or environment-wide credentials.
 
 ## 3) Pre-Flight
 
@@ -55,7 +55,7 @@ thothctl --version || true
 jq --version
 ```
 
-Set environment values:
+Set your environment values:
 
 ```bash
 export THOTH_TENANT_ID="<tenant-id>"
@@ -64,21 +64,10 @@ export THOTH_GOVAPI_BASE="https://govapi.${THOTH_TENANT_ID}.${THOTH_APEX_DOMAIN}
 export THOTH_ADMIN_BEARER_TOKEN_FILE="/path/to/admin-token.jwt"
 ```
 
-## 3.1) Generate the admin token used by `thothctl`
+## 3.1) Authenticate `thothctl` as an Admin
 
-`thothctl` admin operations require a valid admin bearer token for the target
-tenant org.
-
-### Default customer flow (no WorkOS secrets on operator machine)
-Do not distribute identity-provider service secrets to customer operators.
-
-`thothctl auth login` is the required auth path:
-
-1. `POST /:tenant-id/thoth/auth/cli/start` to get signed state + authorize URL
-2. browser sign-in
-3. `POST /:tenant-id/thoth/auth/cli/exchange` to mint admin token
-4. token verification via `/:tenant-id/thoth/auth/check`
-5. token persisted to `--auth-token-file`
+Run `thothctl auth login` once to create the local admin token file used by
+follow-up CLI commands.
 
 ```bash
 thothctl auth login \
@@ -88,10 +77,10 @@ thothctl auth login \
   --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
 
-Optional: add `--customer-domain "<customer-domain>"` if you need to override
-the domain inferred from `--admin-email`.
+Optional: add `--customer-domain "<customer-domain>"` if the domain should be
+different from the domain in `--admin-email`.
 
-Optional non-interactive mode (pre-captured auth code):
+If you already have an auth code, use non-interactive mode:
 
 ```bash
 thothctl auth login \
@@ -102,23 +91,13 @@ thothctl auth login \
   --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
 
-### Internal fallback (non-public)
-Internal break-glass auth procedures are intentionally omitted from this public
-runbook.
+Session behavior:
 
-Token requirements:
-
-1. `org_id` matches tenant WorkOS org.
-2. role includes admin privileges (`role`, `org_role`, or `thoth_role`).
-3. token is unexpired (`exp`).
-
-Default operator session behavior:
-
-1. Once authenticated, admins can continue operations with the minted token.
+1. Once authenticated, admins can continue operations with the saved token.
 2. Sensitive admin actions use a default freshness window of 6 hours.
 3. After token expiry (or stale step-up), re-run `thothctl auth login`.
 
-## 4) Headless Sanity Checks
+## 4) Quick Headless Sanity Checks
 
 ```bash
 thothctl settings get \
@@ -144,7 +123,7 @@ thothctl mdm list \
   --json
 ```
 
-## 5) Connect Claude Desktop (or equivalent local client)
+## 5) Connect Claude Desktop (or an Equivalent Client)
 
 Wrap an existing MCP config:
 
@@ -158,11 +137,12 @@ thoth wrap-config \
   "<path-to-input-config>"
 ```
 
-Start in `shadow`, then move selected scenarios to `block` after baseline behavior is understood.
+Start in `shadow`. Move selected scenarios to `block` after baseline behavior
+is confirmed.
 
 ## 6) Scenario Pack (Kill-Chain Focus)
 
-Run each scenario through local personas/agents:
+Run each scenario through your local personas/agents:
 
 1. prompt-injection-driven secret exfiltration attempt
 2. persona privilege escalation attempt
@@ -170,13 +150,13 @@ Run each scenario through local personas/agents:
 4. unsafe external state-changing action without approval context
 5. cross-session context leakage attempt
 
-Expected behavior:
+Expected outcomes:
 
 1. safe/intended calls: `ALLOW`
 2. high-impact ambiguous calls: `STEP_UP`
 3. policy-violating calls: `BLOCK` and no downstream execution
 
-## 7) Evidence Verification (API-first)
+## 7) Verify Evidence (API-first)
 
 ```bash
 AUTH="Authorization: Bearer $(cat "$THOTH_ADMIN_BEARER_TOKEN_FILE")"
@@ -188,7 +168,7 @@ curl -sS -H "$AUTH" "${BASE}/agent-stats" | jq .
 curl -sS -H "$AUTH" "${BASE}/alerts?limit=50" | jq .
 ```
 
-Capture per scenario:
+Capture the following for each scenario:
 
 1. attempted action and persona
 2. expected decision
@@ -196,7 +176,7 @@ Capture per scenario:
 4. policy reference
 5. evidence/event identifier
 
-## 7.1) Advanced Metadata Checks
+## 7.1) Optional Advanced Metadata Checks
 
 For each blocked or stepped-up request, verify metadata includes:
 
@@ -204,7 +184,7 @@ For each blocked or stepped-up request, verify metadata includes:
 2. broker/request correlation identifiers when applicable
 3. policy decision reason details
 
-Expected outcome:
+Expected result:
 
 1. runtime-governed events include lineage and decision context
 2. correlation fields exist for brokered calls
@@ -212,14 +192,14 @@ Expected outcome:
 
 ## 8) Pass/Fail Criteria
 
-Pre-POC passes if:
+Treat the pre-POC as successful if:
 
 1. multiple realistic harmful chains are blocked or stepped up as designed
 2. evidence is retrievable without dashboard dependency
 3. no credential scope or tenant-isolation issues are observed
 4. operator can replay tests and reproduce outcomes
 
-## 9) Optional Next Step
+## 9) Next Step (Optional)
 
 Promote successful scenarios into a formal pilot acceptance matrix:
 

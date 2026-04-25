@@ -1,6 +1,6 @@
 # thoth-runbooks
 
-Operational runbooks for Thoth headless deployments and integrations.
+Operational runbooks for running Thoth in headless deployments and integrations.
 
 ## Public Safety Rules
 
