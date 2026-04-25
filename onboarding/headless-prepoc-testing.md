@@ -95,41 +95,36 @@ Use this only if you operate the WorkOS app credentials for the environment.
 ```bash
 export WORKOS_CLIENT_ID="<client_id>"
 export WORKOS_API_KEY="<api_key>"
-export WORKOS_ORGANIZATION_ID="<org_id>"
-export WORKOS_REDIRECT_URI="http://localhost:4587/callback"
 ```
 
-2. Build and open authorization URL:
+By default, `thothctl auth login` uses the hosted callback:
+`https://auth.atensecurity.com/cli/callback`.
+Override with `WORKOS_REDIRECT_URI` only when needed.
+
+2. Generate and validate the admin token directly with `thothctl`:
 
 ```bash
-AUTH_URL="https://api.workos.com/user_management/authorize?client_id=${WORKOS_CLIENT_ID}&provider=authkit&response_type=code&organization_id=${WORKOS_ORGANIZATION_ID}&redirect_uri=$(python3 - <<'PY'
-import urllib.parse, os
-print(urllib.parse.quote(os.environ['WORKOS_REDIRECT_URI'], safe=''))
-PY
-)"
-
-echo "$AUTH_URL"
+thothctl auth login \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --customer-domain "<customer-domain>" \
+  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
 
-3. Sign in as tenant admin, then copy `code` from callback URL.
+`thothctl` will open a WorkOS authorize URL. After sign-in, WorkOS redirects to
+`https://auth.atensecurity.com/cli/callback`, which displays the authorization
+code to paste back into the terminal prompt.
 
-4. Exchange code for access token and write token file:
+`--admin-email "<admin@customer-domain>"` can be used instead of
+`--customer-domain`.
 
-```bash
-read -r -p "Paste WorkOS authorization code: " WORKOS_AUTH_CODE
-
-curl -sS https://api.workos.com/user_management/authenticate \
-  -H "Content-Type: application/json" \
-  -d "{\"client_id\":\"${WORKOS_CLIENT_ID}\",\"client_secret\":\"${WORKOS_API_KEY}\",\"grant_type\":\"authorization_code\",\"code\":\"${WORKOS_AUTH_CODE}\"}" \
-  | jq -r '.access_token' > "$THOTH_ADMIN_BEARER_TOKEN_FILE"
-
-chmod 600 "$THOTH_ADMIN_BEARER_TOKEN_FILE"
-```
-
-5. Validate token before use:
+Optional non-interactive mode (pre-captured auth code):
 
 ```bash
-jq -R 'split(".") | .[1] | @base64d | fromjson' < "$THOTH_ADMIN_BEARER_TOKEN_FILE" | jq '{sub, org_id, exp, role, org_role, thoth_role}'
+thothctl auth login \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --customer-domain "<customer-domain>" \
+  --auth-code "<auth-code>" \
+  --auth-token-file "$THOTH_ADMIN_BEARER_TOKEN_FILE"
 ```
 
 Token requirements:
