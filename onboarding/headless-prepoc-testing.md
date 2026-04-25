@@ -3,6 +3,10 @@
 Audience: customer security operators running first validation of Thoth with local agent workflows  
 Mode: headless-first (API/CLI-driven), production-isolated tenant
 
+> This is the standard runbook for all external customer sandboxes and pilots.
+> Delta Arc is the first production customer sandbox using this flow, and the
+> same steps apply to Rightway, Reddit, and future tenants.
+
 ## Goal
 
 Validate that Thoth can:
@@ -60,6 +64,81 @@ export THOTH_APEX_DOMAIN="<apex-domain>"
 export THOTH_GOVAPI_BASE="https://govapi.${THOTH_TENANT_ID}.${THOTH_APEX_DOMAIN}"
 export THOTH_ADMIN_BEARER_TOKEN_FILE="/path/to/admin-token.jwt"
 ```
+
+Environment apex domains:
+
+1. dev: `cawlo.dev`
+2. staging: `nommos.space`
+3. prod: `atensecurity.com`
+
+## 3.1) Generate the admin token used by `thothctl`
+
+`thothctl` admin operations require a valid WorkOS access token with admin role
+for the target tenant org.
+
+### Recommended model for external customer pilots
+
+Aten issues a short-lived admin JWT for the customer sandbox and sends it
+securely (1Password/shared secret). Customers do not need WorkOS API keys.
+
+```bash
+mkdir -p "$(dirname "$THOTH_ADMIN_BEARER_TOKEN_FILE")"
+chmod 700 "$(dirname "$THOTH_ADMIN_BEARER_TOKEN_FILE")"
+# write token to file, then:
+chmod 600 "$THOTH_ADMIN_BEARER_TOKEN_FILE"
+```
+
+### Self-service model (operator-run) for any tenant
+
+Use this only if you operate the WorkOS app credentials for the environment.
+
+1. Set WorkOS values:
+
+```bash
+export WORKOS_CLIENT_ID="<client_id>"
+export WORKOS_API_KEY="<api_key>"
+export WORKOS_ORGANIZATION_ID="<org_id>"
+export WORKOS_REDIRECT_URI="http://localhost:4587/callback"
+```
+
+2. Build and open authorization URL:
+
+```bash
+AUTH_URL="https://api.workos.com/user_management/authorize?client_id=${WORKOS_CLIENT_ID}&provider=authkit&response_type=code&organization_id=${WORKOS_ORGANIZATION_ID}&redirect_uri=$(python3 - <<'PY'
+import urllib.parse, os
+print(urllib.parse.quote(os.environ['WORKOS_REDIRECT_URI'], safe=''))
+PY
+)"
+
+echo "$AUTH_URL"
+```
+
+3. Sign in as tenant admin, then copy `code` from callback URL.
+
+4. Exchange code for access token and write token file:
+
+```bash
+read -r -p "Paste WorkOS authorization code: " WORKOS_AUTH_CODE
+
+curl -sS https://api.workos.com/user_management/authenticate \
+  -H "Content-Type: application/json" \
+  -d "{\"client_id\":\"${WORKOS_CLIENT_ID}\",\"client_secret\":\"${WORKOS_API_KEY}\",\"grant_type\":\"authorization_code\",\"code\":\"${WORKOS_AUTH_CODE}\"}" \
+  | jq -r '.access_token' > "$THOTH_ADMIN_BEARER_TOKEN_FILE"
+
+chmod 600 "$THOTH_ADMIN_BEARER_TOKEN_FILE"
+```
+
+5. Validate token before use:
+
+```bash
+jq -R 'split(".") | .[1] | @base64d | fromjson' < "$THOTH_ADMIN_BEARER_TOKEN_FILE" | jq '{sub, org_id, exp, role, org_role, thoth_role}'
+```
+
+Token requirements:
+
+1. `org_id` matches tenant WorkOS org.
+2. role includes admin privileges (`role`, `org_role`, or `thoth_role`).
+3. token is unexpired (`exp`).
 
 ## 4) Headless Sanity Checks
 
