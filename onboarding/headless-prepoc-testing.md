@@ -43,6 +43,11 @@ Use scoped credentials for three functions:
 2. policy administration (policy read/write for this tenant)
 3. evidence readback (audit/evidence retrieval)
 
+Permission guidance:
+
+1. decisioning keys must include `execute`
+2. admin keys should use least privilege (`read` and/or `write` only as needed)
+
 Avoid shared org-wide or environment-wide credentials.
 
 ## 3) Pre-Flight
@@ -62,6 +67,18 @@ export THOTH_TENANT_ID="<tenant-id>"
 export THOTH_APEX_DOMAIN="<apex-domain>"
 export THOTH_GOVAPI_BASE="https://govapi.${THOTH_TENANT_ID}.${THOTH_APEX_DOMAIN}"
 export THOTH_AUTH_SESSION_FILE="/path/to/thoth-admin-session.jwt"
+```
+
+Set proxy key material using hidden terminal input (recommended):
+
+```bash
+thoth set-api-key --api-key
+```
+
+For automation only (non-interactive), use:
+
+```bash
+thoth set-api-key --api-key-value "<agent-decision-key>"
 ```
 
 ## 3.1) Authenticate `thothctl` as an Admin
@@ -123,11 +140,23 @@ Wrap an existing MCP config:
 ```bash
 thoth wrap-config \
   --tenant-id "$THOTH_TENANT_ID" \
-  --api-key "<agent-decision-key>" \
   --enforcement-mode shadow \
   --session-intent testing \
   --output "<path-to-output-config>" \
   "<path-to-input-config>"
+```
+
+Optional preflight authorization check for a scoped key (hidden prompt mode):
+
+```bash
+thothctl api-keys authorize \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --key-id "<key-id>" \
+  --api-key \
+  --permission execute \
+  --resource-type organization \
+  --resource-id "$THOTH_TENANT_ID" \
+  --json
 ```
 
 Start in `shadow`. Move selected scenarios to `block` after baseline behavior
