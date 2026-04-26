@@ -154,8 +154,7 @@ thothctl api-keys authorize \
   --key-id "<key-id>" \
   --api-key \
   --permission execute \
-  --resource-type organization \
-  --resource-id "$THOTH_TENANT_ID" \
+  --organization \
   --json
 ```
 
