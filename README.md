@@ -15,6 +15,7 @@ Operational runbooks for running Thoth in headless deployments and integrations.
 - `pam/` — step-up and approval-control runbooks
 - `soar/` — incident orchestration runbooks
 - `onboarding/` — headless pre-POC and operator onboarding runbooks
+  - `onboarding/kubernetes-operator.md` — customer cluster deployment via thoth-operator
 
 ## Audience
 
