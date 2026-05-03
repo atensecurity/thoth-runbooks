@@ -108,6 +108,13 @@ pulumi preview
 pulumi up
 ```
 
+Optional post-deploy integrity check:
+
+```bash
+thothctl evidence verify --tenant-id "<TENANT_ID>" --json
+thothctl evidence chain --tenant-id "<TENANT_ID>" --limit 100 --json
+```
+
 ## Option B: Python quickstart
 
 ```bash

@@ -164,6 +164,10 @@ terraform apply tfplan
 ```bash
 terraform state list
 terraform show
+
+# Optional: verify runtime evidence-chain integrity after apply
+thothctl evidence verify --tenant-id "$TF_VAR_tenant_id" --json
+thothctl evidence chain --tenant-id "$TF_VAR_tenant_id" --limit 100 --json
 ```
 
 You should see these resources in state:

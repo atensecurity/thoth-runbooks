@@ -14,7 +14,7 @@ Use it when you need to:
 2. apply a governance baseline,
 3. optionally upsert MDM and trigger sync,
 4. validate runtime key scope,
-5. inspect current tenant state.
+5. inspect current tenant state and evidence chain.
 
 ## Prerequisites
 
@@ -104,6 +104,17 @@ thothctl mdm list --tenant-id "$THOTH_TENANT_ID" --json
 thothctl settings get --tenant-id "$THOTH_TENANT_ID" --json
 thothctl browser providers list --tenant-id "$THOTH_TENANT_ID" --json
 thothctl approvals tools --tenant-id "$THOTH_TENANT_ID" --json
+thothctl evidence verify --tenant-id "$THOTH_TENANT_ID" --json
+thothctl evidence chain --tenant-id "$THOTH_TENANT_ID" --limit 100 --json
+```
+
+If `latest_session_id` is present in the chain output, export the session bundle:
+
+```bash
+thothctl evidence bundle \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --session-id "<session-id-from-chain>" \
+  --output ./evidence-bundle-<session-id>.json
 ```
 
 ## 7) Issue and validate a scoped runtime key
