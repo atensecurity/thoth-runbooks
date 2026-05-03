@@ -19,6 +19,7 @@ Use it when you need to:
 ## Prerequisites
 
 - `thothctl` installed
+- Current stable Thoth binary line (`thoth` + `thothctl`): `v0.2.29`
 - tenant ID
 - admin email for SSO login
 - network egress to `https://grid.<tenant_id>.atensecurity.com`
