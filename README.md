@@ -12,10 +12,22 @@ Operational runbooks for running Thoth in headless deployments and integrations.
 ## Contents
 
 - `siem/` — ingestion, routing, and alert enrichment runbooks
+  - `siem/microsoft-sentinel.md`
+  - `siem/splunk.md`
 - `pam/` — step-up and approval-control runbooks
+  - `pam/approval-gates.md`
 - `soar/` — incident orchestration runbooks
-- `onboarding/` — headless pre-POC and operator onboarding runbooks
-  - `onboarding/kubernetes-operator.md` — customer cluster deployment via thoth-operator
+  - `soar/incident-orchestration.md`
+- `onboarding/` — getting started and deployment-pattern runbooks
+  - `onboarding/thothctl-quickstart.md`
+  - `onboarding/headless-prepoc-testing.md`
+  - `onboarding/choose-deployment-pattern.md`
+  - `onboarding/terraform-quickstart.md`
+  - `onboarding/pulumi-quickstart.md`
+  - `onboarding/kubernetes-operator.md`
+  - `onboarding/kubernetes-operator-production.md`
+- `operations/` — day-2 governance lifecycle runbooks
+  - `operations/policy-lifecycle-management.md`
 
 ## Audience
 
