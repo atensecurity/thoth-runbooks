@@ -1,6 +1,6 @@
 # Thoth Headless Pre-POC Testing Runbook
 
-Audience: customer security operators running first validation of Thoth with local agent workflows  
+Audience: customer security operators running first validation of Thoth with local agent workflows
 Mode: headless-first (API/CLI-driven), production-isolated tenant
 
 > Public runbook: keep all tenant values, domains, keys, and user data
