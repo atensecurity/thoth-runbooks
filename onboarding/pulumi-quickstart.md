@@ -9,7 +9,7 @@ Use this when your teams already deploy infrastructure through Pulumi stacks and
 You will deploy:
 
 - A Thoth provider instance configured for one tenant.
-- Tenant baseline governance settings.
+- Tenant baseline governance and webhook settings.
 - One MDM provider integration.
 - One MDM sync run.
 
@@ -17,7 +17,7 @@ You will deploy:
 
 - Pulumi CLI installed and authenticated.
 - Node.js 20+ or Python 3.11+.
-- A Thoth tenant ID and admin bearer token.
+- A Thoth tenant ID and organization-scoped API key.
 
 ## Option A: Node.js quickstart
 
@@ -25,7 +25,7 @@ You will deploy:
 mkdir -p thoth-pulumi-nodejs
 cd thoth-pulumi-nodejs
 pulumi new nodejs --yes
-npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.1
+npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.4
 ```
 
 Replace `index.ts` with:
@@ -37,23 +37,28 @@ import * as thoth from "@atensec/pulumi-thoth";
 const cfg = new pulumi.Config();
 
 const tenantId = cfg.require("tenantId");
-const adminBearerToken = cfg.requireSecret("adminBearerToken");
 const webhookUrl = cfg.require("webhookUrl");
 const webhookSecret = cfg.requireSecret("webhookSecret");
 
 const provider = new thoth.Provider("thoth", {
   tenantId,
-  adminBearerToken,
 });
 
-const tenantSettings = new thoth.governance.TenantSettings(
-  "baseline",
+const governanceSettings = new thoth.governance.GovernanceSettings(
+  "baseline-governance",
   {
     complianceProfile: "soc2",
     shadowLow: "allow",
     shadowMedium: "step_up",
     shadowHigh: "block",
     shadowCritical: "block",
+  },
+  { provider }
+);
+
+new thoth.governance.WebhookSettings(
+  "baseline-webhook",
+  {
     webhookEnabled: true,
     webhookUrl,
     webhookSecret,
@@ -86,14 +91,13 @@ new thoth.mdm.Sync(
   { provider }
 );
 
-export const tenant = tenantSettings.tenantId;
+export const tenant = governanceSettings.tenantId;
 ```
 
 Set config values:
 
 ```bash
 pulumi config set tenantId "<TENANT_ID>"
-pulumi config set --secret adminBearerToken "<THOTH_ADMIN_BEARER_TOKEN>"
 pulumi config set webhookUrl "https://example.internal/hooks/thoth"
 pulumi config set --secret webhookSecret "<WEBHOOK_SECRET>"
 pulumi config set jamfBaseUrl "https://example.jamfcloud.com"
@@ -104,9 +108,13 @@ pulumi config set --secret jamfClientSecret "<JAMF_CLIENT_SECRET>"
 Deploy:
 
 ```bash
+export THOTH_API_KEY="<THOTH_ORG_API_KEY>"
+export THOTH_TENANT_ID="<TENANT_ID>"
 pulumi preview
 pulumi up
 ```
+
+`THOTH_API_KEY` must be an organization-scoped key.
 
 Optional post-deploy integrity check:
 
@@ -121,7 +129,7 @@ thothctl evidence chain --tenant-id "<TENANT_ID>" --limit 100 --json
 mkdir -p thoth-pulumi-python
 cd thoth-pulumi-python
 pulumi new python --yes
-pip install pulumi pulumi-thoth==0.1.1
+pip install pulumi pulumi-thoth==0.1.4
 ```
 
 Replace `__main__.py` with:
@@ -137,16 +145,20 @@ config = pulumi.Config()
 provider = thoth.Provider(
     "thoth",
     tenant_id=config.require("tenantId"),
-    admin_bearer_token=config.require_secret("adminBearerToken"),
 )
 
-tenant_settings = thoth.governance.TenantSettings(
-    "baseline",
+governance_settings = thoth.governance.GovernanceSettings(
+    "baseline-governance",
     compliance_profile="soc2",
     shadow_low="allow",
     shadow_medium="step_up",
     shadow_high="block",
     shadow_critical="block",
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+
+thoth.governance.WebhookSettings(
+    "baseline-webhook",
     webhook_enabled=True,
     webhook_url=config.require("webhookUrl"),
     webhook_secret=config.require_secret("webhookSecret"),
@@ -176,20 +188,21 @@ thoth.mdm.Sync(
     opts=pulumi.ResourceOptions(provider=provider),
 )
 
-pulumi.export("tenant", tenant_settings.tenant_id)
+pulumi.export("tenant", governance_settings.tenant_id)
 ```
 
 Set config and deploy:
 
 ```bash
 pulumi config set tenantId "<TENANT_ID>"
-pulumi config set --secret adminBearerToken "<THOTH_ADMIN_BEARER_TOKEN>"
 pulumi config set webhookUrl "https://example.internal/hooks/thoth"
 pulumi config set --secret webhookSecret "<WEBHOOK_SECRET>"
 pulumi config set jamfBaseUrl "https://example.jamfcloud.com"
 pulumi config set jamfClientId "<JAMF_CLIENT_ID>"
 pulumi config set --secret jamfClientSecret "<JAMF_CLIENT_SECRET>"
 
+export THOTH_API_KEY="<THOTH_ORG_API_KEY>"
+export THOTH_TENANT_ID="<TENANT_ID>"
 pulumi preview
 pulumi up
 ```

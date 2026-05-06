@@ -47,16 +47,19 @@ If you cannot answer those four items, do not promote the change.
 
 ## Terraform path
 
-Use `thoth_tenant_settings`:
+Use `thoth_governance_settings`:
 
 ```hcl
-resource "thoth_tenant_settings" "tenant" {
+resource "thoth_governance_settings" "tenant" {
   shadow_low      = "allow"
   shadow_medium   = "step_up"
   shadow_high     = "block"
   shadow_critical = "block"
 }
 ```
+
+Manage webhook/SIEM/PAM integrations with `thoth_webhook_settings`,
+`thoth_siem_settings`, and `thoth_pam_settings` as separate resources.
 
 Then trigger sync:
 

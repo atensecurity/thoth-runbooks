@@ -38,11 +38,11 @@ Use this when:
 
 What you manage well in Terraform:
 
-- `thoth_tenant_settings`
+- `thoth_governance_settings`, `thoth_webhook_settings`, `thoth_siem_settings`, `thoth_pam_settings`
 - `thoth_mdm_provider` and `thoth_mdm_sync`
 - `thoth_policy_sync`
 - Browser governance resources
-- API key and approval resources
+- Split API key resources (`thoth_fleet_api_key`, `thoth_endpoint_api_key`, `thoth_agent_api_key`) and approval resources
 
 Tradeoffs:
 

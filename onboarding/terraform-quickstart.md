@@ -12,7 +12,7 @@ It assumes:
 
 You will deploy:
 
-- Tenant baseline governance settings.
+- Tenant baseline governance and webhook settings.
 - One MDM provider integration.
 - One MDM sync run.
 - One policy sync run.
@@ -20,7 +20,7 @@ You will deploy:
 ## Prerequisites
 
 - Terraform `>= 1.5`
-- Access to tenant admin bearer token
+- Access to an organization-scoped Thoth API key
 - Tenant ID (for example `acme-dev`)
 - Optional apex domain if not using `atensecurity.com`
 
@@ -40,25 +40,26 @@ terraform {
   required_providers {
     thoth = {
       source  = "atensecurity/thoth"
-      version = "~> 0.1.2"
+      version = "~> 0.1.4"
     }
   }
 }
 
 provider "thoth" {
-  tenant_id          = var.tenant_id
-  apex_domain        = var.apex_domain
-  admin_bearer_token = var.admin_bearer_token
+  tenant_id   = var.tenant_id
+  apex_domain = var.apex_domain
 }
 
-resource "thoth_tenant_settings" "baseline" {
+resource "thoth_governance_settings" "baseline" {
   compliance_profile = "soc2"
 
   shadow_low      = "allow"
   shadow_medium   = "step_up"
   shadow_high     = "block"
   shadow_critical = "block"
+}
 
+resource "thoth_webhook_settings" "baseline_webhook" {
   webhook_enabled = true
   webhook_url     = var.webhook_url
   webhook_secret  = var.webhook_secret
@@ -102,11 +103,6 @@ variable "apex_domain" {
   default = "atensecurity.com"
 }
 
-variable "admin_bearer_token" {
-  type      = string
-  sensitive = true
-}
-
 variable "webhook_url" {
   type = string
 }
@@ -137,13 +133,17 @@ You can use environment variables instead of committing `*.tfvars` files with se
 ```bash
 export TF_VAR_tenant_id="<TENANT_ID>"
 export TF_VAR_apex_domain="atensecurity.com"
-export TF_VAR_admin_bearer_token="<THOTH_ADMIN_BEARER_TOKEN>"
+export THOTH_API_KEY="<THOTH_ORG_API_KEY>"
+export THOTH_TENANT_ID="<TENANT_ID>"
 export TF_VAR_webhook_url="https://example.internal/hooks/thoth"
 export TF_VAR_webhook_secret="<WEBHOOK_SECRET>"
 export TF_VAR_jamf_base_url="https://example.jamfcloud.com"
 export TF_VAR_jamf_client_id="<JAMF_CLIENT_ID>"
 export TF_VAR_jamf_client_secret="<JAMF_CLIENT_SECRET>"
 ```
+
+`THOTH_API_KEY` must be an organization-scoped key.
+`THOTH_TENANT_ID` lets provider config omit `tenant_id` when desired.
 
 Note on endpoint routing:
 
@@ -172,7 +172,8 @@ thothctl evidence chain --tenant-id "$TF_VAR_tenant_id" --limit 100 --json
 
 You should see these resources in state:
 
-- `thoth_tenant_settings.baseline`
+- `thoth_governance_settings.baseline`
+- `thoth_webhook_settings.baseline_webhook`
 - `thoth_mdm_provider.jamf`
 - `thoth_mdm_sync.jamf_sync`
 - `thoth_policy_sync.baseline`
@@ -184,7 +185,8 @@ If a tenant is already configured out of band, import before making edits.
 Examples:
 
 ```bash
-terraform import thoth_tenant_settings.baseline "<TENANT_ID>"
+terraform import thoth_governance_settings.baseline "<TENANT_ID>"
+terraform import thoth_webhook_settings.baseline_webhook "<TENANT_ID>"
 terraform import thoth_mdm_provider.jamf "jamf"
 terraform import thoth_policy_sync.baseline "policy-sync"
 ```
@@ -216,7 +218,7 @@ Safe change workflow:
 
 `Error: invalid token`:
 
-- Verify `TF_VAR_admin_bearer_token` value and token scope.
+- Verify `THOTH_API_KEY` value and confirm it is org-scoped.
 
 `Plan wants to recreate MDM provider unexpectedly`:
 
