@@ -1,0 +1,11 @@
+agents:
+  - name: alert-triage-agent
+  - name: coding-fix-agent
+
+human_roles:
+  - name: security-engineer
+    google_group: security-engineers@<company-domain>
+  - name: platform-engineer
+    google_group: platform-engineers@<company-domain>
+  - name: support-engineer
+    google_group: support-engineers@<company-domain>

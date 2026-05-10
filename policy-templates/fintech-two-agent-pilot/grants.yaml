@@ -1,0 +1,56 @@
+grants:
+  - principal: agent:alert-triage-agent
+    resources:
+      - name: datadog-logs
+        allowed_purposes:
+          - internal
+          - confidential
+        behavioral_controls:
+          mismatch_boost: 28
+          delegation_boost: 12
+          trust_floor: 0.20
+          critical_threshold: 0.85
+      - name: security-knowledge-kb
+        allowed_purposes:
+          - internal
+    models:
+      - name: claude-sonnet
+        token_budget_daily: 200000
+
+  - principal: agent:coding-fix-agent
+    resources:
+      - name: bug-tracker
+        allowed_purposes:
+          - internal
+        behavioral_controls:
+          mismatch_boost: 24
+          delegation_boost: 10
+          trust_floor: 0.18
+          critical_threshold: 0.82
+      - name: security-knowledge-kb
+        allowed_purposes:
+          - internal
+    models:
+      - name: gpt-4o
+        token_budget_daily: 180000
+
+  - principal: role:security-engineer
+    resources:
+      - name: datadog-logs
+        allowed_purposes:
+          - internal
+          - confidential
+      - name: security-knowledge-kb
+        allowed_purposes:
+          - internal
+          - confidential
+
+  - principal: role:support-engineer
+    resources:
+      - name: vendor-response-kb
+        allowed_purposes:
+          - customer-facing
+          - internal
+      - name: slack-history
+        allowed_purposes:
+          - internal

@@ -164,3 +164,4 @@ Keep reviews short and blunt. You need signal, not ceremony.
 - `onboarding/terraform-quickstart.md`
 - `onboarding/pulumi-quickstart.md`
 - `onboarding/kubernetes-operator-production.md`
+- `policy-templates/README.md`

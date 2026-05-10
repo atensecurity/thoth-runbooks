@@ -1,0 +1,46 @@
+resources:
+  - name: security-knowledge-kb
+    category: indexed
+    allowed_tools:
+      - search_knowledge_base
+    default_classification: internal
+
+  - name: vendor-response-kb
+    category: indexed
+    allowed_tools:
+      - search_knowledge_base
+    default_classification: public
+
+  - name: slack-history
+    category: indexed
+    allowed_tools:
+      - search_knowledge_base
+    default_classification: internal
+
+  - name: datadog-logs
+    category: live_data
+    allowed_tools:
+      - query_datadog_logs
+    default_classification: confidential
+
+  - name: bug-tracker
+    category: live_data
+    allowed_tools:
+      - query_issue_tracker
+    default_classification: internal
+
+  - name: claude-sonnet
+    category: model
+  - name: gpt-4o
+    category: model
+
+purpose_sensitivity:
+  customer-facing:
+    - public
+  internal:
+    - public
+    - internal
+  confidential:
+    - public
+    - internal
+    - confidential

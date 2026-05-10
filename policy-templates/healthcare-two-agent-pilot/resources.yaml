@@ -1,0 +1,46 @@
+resources:
+  - name: incident-response-kb
+    category: indexed
+    allowed_tools:
+      - search_knowledge_base
+    default_classification: internal
+
+  - name: approved-external-responses
+    category: indexed
+    allowed_tools:
+      - search_knowledge_base
+    default_classification: public
+
+  - name: clinical-chat-history
+    category: indexed
+    allowed_tools:
+      - search_knowledge_base
+    default_classification: confidential
+
+  - name: observability-logs
+    category: live_data
+    allowed_tools:
+      - query_observability
+    default_classification: confidential
+
+  - name: ticketing-system
+    category: live_data
+    allowed_tools:
+      - query_ticketing
+    default_classification: internal
+
+  - name: claude-sonnet
+    category: model
+  - name: gpt-4o
+    category: model
+
+purpose_sensitivity:
+  customer-facing:
+    - public
+  internal:
+    - public
+    - internal
+  confidential:
+    - public
+    - internal
+    - confidential

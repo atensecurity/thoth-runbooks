@@ -1,0 +1,11 @@
+agents:
+  - name: incident-triage-agent
+  - name: coding-remediation-agent
+
+human_roles:
+  - name: security-analyst
+    google_group: security-analysts@<company-domain>
+  - name: compliance-analyst
+    google_group: compliance-analysts@<company-domain>
+  - name: engineering
+    google_group: engineering@<company-domain>

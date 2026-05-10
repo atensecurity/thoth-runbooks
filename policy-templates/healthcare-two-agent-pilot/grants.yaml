@@ -1,0 +1,65 @@
+grants:
+  - principal: agent:incident-triage-agent
+    resources:
+      - name: observability-logs
+        allowed_purposes:
+          - internal
+          - confidential
+        behavioral_controls:
+          mismatch_boost: 32
+          delegation_boost: 14
+          trust_floor: 0.22
+          critical_threshold: 0.80
+      - name: incident-response-kb
+        allowed_purposes:
+          - internal
+          - confidential
+    models:
+      - name: claude-sonnet
+        token_budget_daily: 160000
+
+  - principal: agent:coding-remediation-agent
+    resources:
+      - name: ticketing-system
+        allowed_purposes:
+          - internal
+        behavioral_controls:
+          mismatch_boost: 26
+          delegation_boost: 11
+          trust_floor: 0.20
+          critical_threshold: 0.83
+      - name: incident-response-kb
+        allowed_purposes:
+          - internal
+    models:
+      - name: gpt-4o
+        token_budget_daily: 140000
+
+  - principal: role:security-analyst
+    resources:
+      - name: observability-logs
+        allowed_purposes:
+          - internal
+          - confidential
+      - name: clinical-chat-history
+        allowed_purposes:
+          - confidential
+
+  - principal: role:compliance-analyst
+    resources:
+      - name: clinical-chat-history
+        allowed_purposes:
+          - confidential
+      - name: approved-external-responses
+        allowed_purposes:
+          - customer-facing
+          - internal
+
+  - principal: role:engineering
+    resources:
+      - name: ticketing-system
+        allowed_purposes:
+          - internal
+      - name: incident-response-kb
+        allowed_purposes:
+          - internal

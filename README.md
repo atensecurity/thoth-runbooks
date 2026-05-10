@@ -28,6 +28,9 @@ Operational runbooks for running Thoth in headless deployments and integrations.
   - `onboarding/kubernetes-operator-production.md`
 - `operations/` — day-2 governance lifecycle runbooks
   - `operations/policy-lifecycle-management.md`
+- `policy-templates/` — public-safe starter policy bundles for early pilots
+  - `policy-templates/fintech-two-agent-pilot/`
+  - `policy-templates/healthcare-two-agent-pilot/`
 
 ## Audience
 
