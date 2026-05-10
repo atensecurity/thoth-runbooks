@@ -303,6 +303,13 @@ pulumi preview
 pulumi up
 ```
 
+Read-only invoice access as JSON from Pulumi invoke output:
+
+```ts
+const invoices = thoth.billing.getInvoicesOutput({ limit: 50 }, { provider });
+export const billingInvoicesJson = invoices.responseJson;
+```
+
 ## Notes on endpoint routing
 
 - If `apiBaseUrl` is omitted, the provider derives `https://grid.<tenant_id>.<apex_domain>`.

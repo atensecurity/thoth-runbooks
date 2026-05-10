@@ -258,6 +258,22 @@ thothctl evidence verify --tenant-id "$TF_VAR_tenant_id" --json
 thothctl evidence chain --tenant-id "$TF_VAR_tenant_id" --limit 100 --json
 ```
 
+Read-only invoice access as JSON from Terraform data sources:
+
+```hcl
+data "thoth_billing_invoices" "recent" {
+  limit = 50
+}
+
+output "billing_invoices_json" {
+  value = data.thoth_billing_invoices.recent.invoices_json
+}
+
+output "billing_invoices_response_json" {
+  value = data.thoth_billing_invoices.recent.response_json
+}
+```
+
 You should see these resources in state:
 
 - `thoth_governance_settings.baseline`

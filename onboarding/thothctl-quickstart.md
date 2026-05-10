@@ -260,6 +260,8 @@ Optional billing preview and credit-bank check:
 ```bash
 thothctl billing estimate --tenant-id "$THOTH_TENANT_ID" --json
 thothctl billing credit-bank --tenant-id "$THOTH_TENANT_ID" --json
+thothctl billing invoices --tenant-id "$THOTH_TENANT_ID" --limit 50 --json
+thothctl billing invoices --tenant-id "$THOTH_TENANT_ID" --limit 50 --output ./billing/invoices-latest.json
 ```
 
 ## 9) Issue and validate a scoped runtime key
