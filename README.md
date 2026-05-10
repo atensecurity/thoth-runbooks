@@ -19,6 +19,7 @@ Operational runbooks for running Thoth in headless deployments and integrations.
 - `soar/` — incident orchestration runbooks
   - `soar/incident-orchestration.md`
 - `onboarding/` — getting started and deployment-pattern runbooks
+  - `onboarding/customer-environment-initialization.md`
   - `onboarding/thothctl-quickstart.md`
   - `onboarding/headless-prepoc-testing.md`
   - `onboarding/choose-deployment-pattern.md`

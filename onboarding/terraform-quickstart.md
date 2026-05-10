@@ -15,6 +15,7 @@ You will deploy:
 - Tenant baseline governance and webhook settings.
 - One MDM provider integration.
 - One MDM sync run.
+- One policy-pack assignment baseline with deterministic controls.
 - One policy sync run.
 
 ## Prerequisites
@@ -23,6 +24,11 @@ You will deploy:
 - Access to an organization-scoped Thoth API key
 - Tenant ID (for example `acme-dev`)
 - Optional apex domain if not using `atensecurity.com`
+
+Policy template baselines live in:
+
+- `policy-templates/fintech-two-agent-pilot/`
+- `policy-templates/healthcare-two-agent-pilot/`
 
 ## Step 1: scaffold a working directory
 
@@ -40,7 +46,7 @@ terraform {
   required_providers {
     thoth = {
       source  = "atensecurity/thoth"
-      version = "~> 0.1.4"
+      version = "~> 0.1.5"
     }
   }
 }
@@ -48,15 +54,17 @@ terraform {
 provider "thoth" {
   tenant_id   = var.tenant_id
   apex_domain = var.apex_domain
+  org_api_key = var.org_api_key
 }
 
 resource "thoth_governance_settings" "baseline" {
   compliance_profile = "soc2"
 
+  # Week 1 shadow-first defaults
   shadow_low      = "allow"
-  shadow_medium   = "step_up"
-  shadow_high     = "block"
-  shadow_critical = "block"
+  shadow_medium   = "allow"
+  shadow_high     = "step_up"
+  shadow_critical = "step_up"
 }
 
 resource "thoth_webhook_settings" "baseline_webhook" {
@@ -83,11 +91,28 @@ resource "thoth_mdm_sync" "jamf_sync" {
   timeout_seconds     = 180
 }
 
+resource "thoth_pack_assignment_bulk" "pilot_controls" {
+  pack_ids     = var.pilot_pack_ids
+  environment  = "dev"
+  all_agents   = true
+
+  mismatch_boost     = 25
+  delegation_boost   = 12
+  trust_floor        = 0.20
+  critical_threshold = 0.85
+
+  trigger = "pilot-controls-v1"
+}
+
 resource "thoth_policy_sync" "baseline" {
-  trigger               = "initial-baseline"
+  trigger               = "initial-baseline-with-packs"
   wait_for_completion   = true
   poll_interval_seconds = 5
   timeout_seconds       = 180
+
+  depends_on = [
+    thoth_pack_assignment_bulk.pilot_controls
+  ]
 }
 ```
 
@@ -96,6 +121,16 @@ Create `variables.tf`:
 ```hcl
 variable "tenant_id" {
   type = string
+}
+
+variable "org_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "pilot_pack_ids" {
+  type        = list(string)
+  description = "Compliance packs to apply for pilot controls"
 }
 
 variable "apex_domain" {
@@ -128,13 +163,18 @@ variable "jamf_client_secret" {
 
 ## Step 2: set secrets safely
 
-You can use environment variables instead of committing `*.tfvars` files with secrets.
+Use environment variables instead of committing `*.tfvars` with secrets.
 
 ```bash
 export TF_VAR_tenant_id="<TENANT_ID>"
+export TF_VAR_org_api_key="<THOTH_ORG_API_KEY>"
 export TF_VAR_apex_domain="atensecurity.com"
 export THOTH_API_KEY="<THOTH_ORG_API_KEY>"
 export THOTH_TENANT_ID="<TENANT_ID>"
+
+# Choose packs from `thothctl governance packs` output:
+export TF_VAR_pilot_pack_ids='["<pack-id-1>","<pack-id-2>"]'
+
 export TF_VAR_webhook_url="https://example.internal/hooks/thoth"
 export TF_VAR_webhook_secret="<WEBHOOK_SECRET>"
 export TF_VAR_jamf_base_url="https://example.jamfcloud.com"
@@ -142,11 +182,10 @@ export TF_VAR_jamf_client_id="<JAMF_CLIENT_ID>"
 export TF_VAR_jamf_client_secret="<JAMF_CLIENT_SECRET>"
 ```
 
-`THOTH_API_KEY` must be an organization-scoped key.
-`THOTH_TENANT_ID` lets provider config omit `tenant_id` when desired.
+Notes:
 
-Note on endpoint routing:
-
+- `THOTH_API_KEY` must be an organization-scoped key.
+- `THOTH_TENANT_ID` lets provider config omit `tenant_id` when desired.
 - If you do not set `api_base_url`, the provider derives it as `https://grid.<tenant_id>.<apex_domain>`.
 
 ## Step 3: init, plan, apply
@@ -159,13 +198,17 @@ terraform plan -out tfplan
 terraform apply tfplan
 ```
 
-## Step 4: verify state and remote behavior
+## Step 4: verify state and runtime behavior
 
 ```bash
 terraform state list
 terraform show
 
-# Optional: verify runtime evidence-chain integrity after apply
+# Verify pack assignment + runtime status
+thothctl governance runtime-status --tenant-id "$TF_VAR_tenant_id" --environment dev --json
+thothctl governance day7-report --tenant-id "$TF_VAR_tenant_id" --days 7 --json
+
+# Verify evidence-chain integrity
 thothctl evidence verify --tenant-id "$TF_VAR_tenant_id" --json
 thothctl evidence chain --tenant-id "$TF_VAR_tenant_id" --limit 100 --json
 ```
@@ -176,6 +219,7 @@ You should see these resources in state:
 - `thoth_webhook_settings.baseline_webhook`
 - `thoth_mdm_provider.jamf`
 - `thoth_mdm_sync.jamf_sync`
+- `thoth_pack_assignment_bulk.pilot_controls`
 - `thoth_policy_sync.baseline`
 
 ## Importing existing resources into Terraform
@@ -204,7 +248,8 @@ Resolve drift in code before first production apply.
 Common updates:
 
 - Rotate webhook/MDM secrets.
-- Adjust shadow decisions by risk tier.
+- Move from week-1 shadow to week-2 selective block posture.
+- Tune deterministic controls by changing `thoth_pack_assignment_bulk` values.
 - Trigger policy sync with a new `trigger` value.
 
 Safe change workflow:
@@ -218,12 +263,16 @@ Safe change workflow:
 
 `Error: invalid token`:
 
-- Verify `THOTH_API_KEY` value and confirm it is org-scoped.
+- Verify `TF_VAR_org_api_key` or `THOTH_API_KEY` and confirm it is org-scoped.
 
 `Plan wants to recreate MDM provider unexpectedly`:
 
 - Re-check `provider_name` and current remote value.
 - Import first if resource existed before Terraform management.
+
+`pack_assignment_bulk` fails with unknown pack IDs:
+
+- Validate pack IDs with `thothctl governance packs --tenant-id "$TF_VAR_tenant_id" --json`.
 
 `policy_sync` appears unchanged:
 
@@ -232,3 +281,4 @@ Safe change workflow:
 ## Recommended next step
 
 After this quickstart is stable, add CI plan checks and environment promotion gates.
+Then use `onboarding/customer-environment-initialization.md` as your customer-facing pilot initialization checklist.

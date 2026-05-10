@@ -42,6 +42,7 @@ Each template contains:
 
 Use these runbooks together with:
 
+- `onboarding/customer-environment-initialization.md`
 - `operations/policy-lifecycle-management.md`
 - `onboarding/thothctl-quickstart.md`
 - `onboarding/terraform-quickstart.md`

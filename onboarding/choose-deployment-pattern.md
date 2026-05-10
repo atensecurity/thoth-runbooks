@@ -152,6 +152,7 @@ Week 4:
 
 ## Related runbooks
 
+- `onboarding/customer-environment-initialization.md`
 - `onboarding/terraform-quickstart.md`
 - `onboarding/pulumi-quickstart.md`
 - `onboarding/kubernetes-operator-production.md`

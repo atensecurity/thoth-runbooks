@@ -6,15 +6,17 @@ Use it when you need to:
 
 - validate a tenant quickly,
 - prove ALLOW/STEP_UP/BLOCK behavior in a headless workflow,
+- initialize policy packs for a two-agent pilot,
 - or recover quickly during operations without waiting on a full IaC cycle.
 
 ## What you will do
 
 1. authenticate an admin session,
 2. apply a governance baseline,
-3. optionally upsert MDM and trigger sync,
-4. validate runtime key scope,
-5. inspect current tenant state and evidence chain.
+3. apply governance packs with deterministic controls,
+4. optionally upsert MDM and trigger sync,
+5. validate runtime key scope,
+6. inspect runtime status, reports, and evidence.
 
 ## Prerequisites
 
@@ -22,7 +24,13 @@ Use it when you need to:
 - Current stable Thoth binary line (`thoth` + `thothctl`): `v0.2.29`
 - tenant ID
 - admin email for SSO login
+- optional org API key for non-interactive calls
 - network egress to `https://grid.<tenant_id>.atensecurity.com`
+
+Policy template baselines live in:
+
+- `policy-templates/fintech-two-agent-pilot/`
+- `policy-templates/healthcare-two-agent-pilot/`
 
 ## 1) Sanity check local CLI
 
@@ -37,6 +45,9 @@ thothctl manual | head -n 40
 export THOTH_TENANT_ID="<tenant-id>"
 export THOTH_APEX_DOMAIN="atensecurity.com"
 export THOTH_ADMIN_EMAIL="<admin@customer-domain>"
+
+# Optional for non-interactive calls after initial login:
+export THOTH_ORG_API_KEY="<org-api-key>"
 ```
 
 ## 3) Authenticate admin session
@@ -45,7 +56,7 @@ export THOTH_ADMIN_EMAIL="<admin@customer-domain>"
 thothctl auth login \
   --tenant-id "$THOTH_TENANT_ID" \
   --admin-email "$THOTH_ADMIN_EMAIL" \
-  --apex-domain "$THOTH_APEX_DOMAIN"
+  --customer-domain "<customer-domain>"
 ```
 
 Notes:
@@ -55,7 +66,20 @@ Notes:
 
 ## 4) Bootstrap tenant baseline
 
-Use this first-pass baseline in non-production:
+Week 1 (shadow-first) baseline for pilots:
+
+```bash
+thothctl bootstrap \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --compliance-profile soc2 \
+  --shadow-low allow \
+  --shadow-medium allow \
+  --shadow-high step_up \
+  --shadow-critical step_up \
+  --json
+```
+
+Week 2 (selective enforcement) baseline:
 
 ```bash
 thothctl bootstrap \
@@ -79,7 +103,53 @@ thothctl bootstrap \
   --json
 ```
 
-## 5) Optional: upsert MDM and trigger sync
+## 5) Apply governance packs with deterministic controls
+
+List available packs:
+
+```bash
+thothctl governance packs --tenant-id "$THOTH_TENANT_ID" --json
+```
+
+Apply selected packs to all pilot agents in `dev`:
+
+```bash
+thothctl governance apply-packs \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --environment dev \
+  --all-agents \
+  --pack-id "<pack-id-1>" \
+  --pack-id "<pack-id-2>" \
+  --mismatch-boost 25 \
+  --delegation-boost 12 \
+  --trust-floor 0.20 \
+  --critical-threshold 0.85 \
+  --json
+```
+
+Use per-pack JSON when tuning controls by pack:
+
+```bash
+thothctl governance apply-packs \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --environment dev \
+  --all-agents \
+  --pack-id "<pack-id-1>" \
+  --pack-id "<pack-id-2>" \
+  --overrides-by-pack-json '{
+    "<pack-id-1>": {
+      "behavioral_controls": {
+        "mismatch_boost": 30,
+        "delegation_boost": 14,
+        "trust_floor": 0.22,
+        "critical_threshold": 0.84
+      }
+    }
+  }' \
+  --json
+```
+
+## 6) Optional: upsert MDM and trigger sync
 
 Jamf example:
 
@@ -99,11 +169,13 @@ Then check MDM status:
 thothctl mdm list --tenant-id "$THOTH_TENANT_ID" --json
 ```
 
-## 6) Inspect current tenant state
+## 7) Inspect runtime status and reports
 
 ```bash
 thothctl settings get --tenant-id "$THOTH_TENANT_ID" --json
-thothctl browser providers list --tenant-id "$THOTH_TENANT_ID" --json
+thothctl governance runtime-status --tenant-id "$THOTH_TENANT_ID" --environment dev --json
+thothctl governance day7-report --tenant-id "$THOTH_TENANT_ID" --days 7 --json
+thothctl governance reports-overview --tenant-id "$THOTH_TENANT_ID" --days 30 --json
 thothctl approvals tools --tenant-id "$THOTH_TENANT_ID" --json
 thothctl evidence verify --tenant-id "$THOTH_TENANT_ID" --json
 thothctl evidence chain --tenant-id "$THOTH_TENANT_ID" --limit 100 --json
@@ -118,7 +190,14 @@ thothctl evidence bundle \
   --output ./evidence-bundle-<session-id>.json
 ```
 
-## 7) Issue and validate a scoped runtime key
+Optional billing preview and credit-bank check:
+
+```bash
+thothctl billing estimate --tenant-id "$THOTH_TENANT_ID" --json
+thothctl billing credit-bank --tenant-id "$THOTH_TENANT_ID" --json
+```
+
+## 8) Issue and validate a scoped runtime key
 
 Create key for one fleet:
 
@@ -144,7 +223,7 @@ thothctl api-keys authorize \
   --json
 ```
 
-## 8) Common failure modes
+## 9) Common failure modes
 
 `HTTP 401` during admin actions:
 
@@ -154,18 +233,23 @@ thothctl api-keys authorize \
 
 - Validate scope IDs first with `thothctl endpoints list --tenant-id "$THOTH_TENANT_ID" --json`.
 
+`governance apply-packs` returns unknown `pack_id`:
+
+- Confirm available pack IDs with `thothctl governance packs --tenant-id "$THOTH_TENANT_ID" --json`.
+
 `choose exactly one scope selector`:
 
-- Use only one of `--organization`, `--fleet-id`, `--endpoint-id`, or `--agent-id`.
+- Use one target mode per call: `--all-agents`, or explicit `--agent-id`, `--fleet-id`, or `--endpoint-id`.
 
 `policy behavior changed but not reflected in traffic`:
 
-- Confirm baseline applied, then verify sync status and approval/feed outputs.
+- Confirm baseline + pack assignment applied, then verify `governance runtime-status` and approvals feed outputs.
 
-## 9) Move from CLI-first to managed lifecycle
+## 10) Move from CLI-first to managed lifecycle
 
 After initial bootstrap, move long-lived config into one of these:
 
+- `onboarding/customer-environment-initialization.md`
 - `onboarding/terraform-quickstart.md`
 - `onboarding/pulumi-quickstart.md`
 - `onboarding/kubernetes-operator-production.md`
