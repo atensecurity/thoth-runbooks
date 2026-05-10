@@ -24,6 +24,14 @@ Use these bundles as a baseline for new customer onboarding across tenants, then
 
 Each policy includes `thoth_rule` directives so Enforcer can execute low-latency deterministic sidecar decisions.
 
+## Validation preflight
+
+Before applying these bundles in onboarding, validate policy shape:
+
+- OPA: include policy conditions that reference `input.principal`, `input.action`, and `input.context`.
+- Cedar: include at least one explicit `permit(...)` or `forbid(...)` statement.
+- Keep policy bundle assignments explicit (`all` or `agent:<agent-id>`) to avoid accidental blast radius.
+
 ## Assignment patterns
 
 Use any of these assignment modes when creating policy bundle versions:

@@ -2,6 +2,9 @@
 
 This runbook covers deploying the Thoth Kubernetes operator so customer platform teams can manage Thoth tenant configuration via Kubernetes-native workflows.
 
+This public version is intentionally limited. Keep environment-specific cutover
+procedures and incident workflows in your internal runbooks.
+
 ## Why Operator + IaC Together
 
 Recommended pattern:
@@ -15,8 +18,8 @@ This keeps platform provisioning and workload-side governance automation clearly
 
 - Kubernetes 1.28+
 - Helm 3.13+
-- Network egress from cluster to `https://grid.{tenant_id}.atensecurity.com`
-- Thoth admin bearer token for the target tenant
+- Network egress from cluster to `https://<thoth-control-plane-host>`
+- Thoth admin auth token for the target tenant
 
 ## Install Operator
 
@@ -31,7 +34,7 @@ helm upgrade --install thoth-operator oci://ghcr.io/atensecurity/charts/thoth-op
 
 ```bash
 kubectl -n thoth-system create secret generic thoth-admin-token \
-  --from-literal=token='<THOTH_ADMIN_BEARER_TOKEN>'
+  --from-literal=token='<THOTH_ADMIN_AUTH_TOKEN>'
 ```
 
 ## Apply ThothTenant
@@ -40,11 +43,11 @@ kubectl -n thoth-system create secret generic thoth-admin-token \
 apiVersion: platform.atensecurity.com/v1alpha1
 kind: ThothTenant
 metadata:
-  name: customer-a
+  name: tenant-a
   namespace: thoth-system
 spec:
-  tenantId: customer-a
-  apexDomain: atensecurity.com
+  tenantId: tenant-a
+  apexDomain: "<apex-domain>"
   authSecretRef:
     name: thoth-admin-token
     key: token
@@ -61,8 +64,8 @@ kubectl apply -f thothtenant.yaml
 ## Verify Reconciliation
 
 ```bash
-kubectl -n thoth-system get thothtenant customer-a -o wide
-kubectl -n thoth-system describe thothtenant customer-a
+kubectl -n thoth-system get thothtenant tenant-a -o wide
+kubectl -n thoth-system describe thothtenant tenant-a
 kubectl -n thoth-system logs deploy/thoth-operator
 ```
 
@@ -78,6 +81,6 @@ Add `mdmProvider` to `spec` and store provider token in a Kubernetes Secret. Do 
 
 ## Operational Guidance
 
-- Rotate bearer tokens through secret updates; reconciliation will re-apply desired state.
+- Rotate auth tokens through secret updates; reconciliation will re-apply desired state.
 - Scope operator to a namespace with `watchNamespace` when multi-team isolation is required.
 - Use GitOps for all CR changes and track approvals in your existing change-management workflow.

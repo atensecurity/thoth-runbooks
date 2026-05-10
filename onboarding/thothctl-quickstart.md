@@ -26,7 +26,7 @@ Use it when you need to:
 - tenant ID
 - admin email for SSO login
 - optional org API key for non-interactive calls
-- network egress to `https://grid.<tenant_id>.atensecurity.com`
+- network egress to your control-plane endpoint (for example `https://<thoth-control-plane-host>`)
 
 Policy template baselines live in:
 
@@ -45,7 +45,7 @@ thothctl manual | head -n 40
 
 ```bash
 export THOTH_TENANT_ID="<tenant-id>"
-export THOTH_APEX_DOMAIN="atensecurity.com"
+export THOTH_APEX_DOMAIN="<apex-domain>"
 export THOTH_ADMIN_EMAIL="<admin@customer-domain>"
 export THOTH_REGULATORY_REGIMES_CSV="soc2"
 
@@ -185,7 +185,7 @@ thothctl governance policy-bundles upsert \
   --tenant-id "$THOTH_TENANT_ID" \
   --name "global-governance" \
   --framework OPA \
-  --s3-uri "s3://atensec-governance-us-west-2/v2.4.1/standard.rego" \
+  --s3-uri "s3://<policy-bucket>/<version>/standard.rego" \
   --s3-version-id "<optional-version-id>" \
   --expected-hash "sha256:<expected-content-hash>" \
   --assignment all \

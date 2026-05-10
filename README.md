@@ -8,6 +8,7 @@ Operational runbooks for running Thoth in headless deployments and integrations.
 - Never include real secrets, tokens, API keys, callback secrets, or JWTs.
 - Use placeholders for all environment-specific values.
 - Keep internal break-glass or privileged operator procedures out of this repo.
+- Keep detailed production cutover and incident-response procedures in internal docs only.
 
 ## Contents
 

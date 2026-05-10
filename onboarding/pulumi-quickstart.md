@@ -26,7 +26,7 @@ You will deploy:
 mkdir -p thoth-pulumi-nodejs
 cd thoth-pulumi-nodejs
 pulumi new nodejs --yes
-npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.6
+npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.7
 ```
 
 Replace `index.ts` with:
@@ -104,7 +104,19 @@ const standardDlpOpa = new thoth.governance.PolicyBundle(
     framework: "OPA",
     rawPolicy: `package thoth.policies.standard_dlp
 default allow := true
-allow if { input.principal.id != ""; input.action != ""; input.context.purpose != "" }`,
+
+deny if {
+  startswith(input.action, "tool_call:")
+  input.context.purpose == "customer-facing"
+  input.context.sensitivity_label != "public"
+}
+
+allow if {
+  input.principal.id != ""
+  input.action != ""
+  input.context.purpose != ""
+  not deny
+}`,
     enforcementMode: "enforce",
   },
   { provider },
@@ -115,7 +127,7 @@ const enterpriseStandard = new thoth.governance.PolicyBundle(
   {
     name: "global-governance",
     framework: "OPA",
-    s3Uri: "s3://atensec-governance-us-west-2/v2.4.1/standard.rego",
+    s3Uri: "s3://<policy-bucket>/<version>/standard.rego",
     s3VersionId: "<optional-version-id>",
     expectedHash: "sha256:<expected-content-hash>",
     assignments: ["all"],
@@ -130,7 +142,22 @@ const leastPrivilegeCedar = new thoth.governance.PolicyBundle(
     name: "least-privilege-analyst",
     description: "Least-privilege baseline for selected agents",
     framework: "CEDAR",
-    rawPolicy: `permit(principal, action, resource) when { context.purpose != ""; context.action != ""; };`,
+    rawPolicy: `permit(principal, action, resource)
+when {
+  context.principal_id != "" &&
+  context.purpose == "internal" &&
+  context.action != ""
+};
+
+forbid(principal, action, resource)
+when {
+  context.purpose == "customer-facing" &&
+  (
+    context.sensitivity_label == "internal" ||
+    context.sensitivity_label == "confidential" ||
+    context.sensitivity_label == "restricted"
+  )
+};`,
     assignments: ["agent:security-analyst-agent", "agent:coding-agent"],
     enforcementMode: "enforce",
   },
@@ -180,7 +207,7 @@ thothctl evidence chain --tenant-id "<TENANT_ID>" --limit 100 --json
 mkdir -p thoth-pulumi-python
 cd thoth-pulumi-python
 pulumi new python --yes
-pip install pulumi pulumi-thoth==0.1.6
+pip install pulumi pulumi-thoth==0.1.7
 ```
 
 Replace `__main__.py` with:
@@ -247,8 +274,18 @@ standard_dlp_opa = thoth.governance.PolicyBundle(
     framework="OPA",
     raw_policy=(
         "package thoth.policies.standard_dlp\\n"
-        "default allow := true\\n"
-        "allow if { input.principal.id != \\\"\\\"; input.action != \\\"\\\"; input.context.purpose != \\\"\\\" }"
+        "default allow := true\\n\\n"
+        "deny if {\\n"
+        "  startswith(input.action, \\\"tool_call:\\\")\\n"
+        "  input.context.purpose == \\\"customer-facing\\\"\\n"
+        "  input.context.sensitivity_label != \\\"public\\\"\\n"
+        "}\\n\\n"
+        "allow if {\\n"
+        "  input.principal.id != \\\"\\\"\\n"
+        "  input.action != \\\"\\\"\\n"
+        "  input.context.purpose != \\\"\\\"\\n"
+        "  not deny\\n"
+        "}"
     ),
     enforcement_mode="enforce",
     opts=pulumi.ResourceOptions(provider=provider),
@@ -259,7 +296,23 @@ least_privilege_cedar = thoth.governance.PolicyBundle(
     name="least-privilege-analyst",
     description="Least-privilege baseline for selected agents",
     framework="CEDAR",
-    raw_policy="permit(principal, action, resource) when { context.purpose != \\\"\\\"; context.action != \\\"\\\"; };",
+    raw_policy=(
+        "permit(principal, action, resource)\\n"
+        "when {\\n"
+        "  context.principal_id != \\\"\\\" &&\\n"
+        "  context.purpose == \\\"internal\\\" &&\\n"
+        "  context.action != \\\"\\\"\\n"
+        "};\\n\\n"
+        "forbid(principal, action, resource)\\n"
+        "when {\\n"
+        "  context.purpose == \\\"customer-facing\\\" &&\\n"
+        "  (\\n"
+        "    context.sensitivity_label == \\\"internal\\\" ||\\n"
+        "    context.sensitivity_label == \\\"confidential\\\" ||\\n"
+        "    context.sensitivity_label == \\\"restricted\\\"\\n"
+        "  )\\n"
+        "};"
+    ),
     assignments=["agent:security-analyst-agent", "agent:coding-agent"],
     enforcement_mode="enforce",
     opts=pulumi.ResourceOptions(provider=provider),
@@ -269,7 +322,7 @@ enterprise_standard = thoth.governance.PolicyBundle(
     "enterprise-standard",
     name="global-governance",
     framework="OPA",
-    s3_uri="s3://atensec-governance-us-west-2/v2.4.1/standard.rego",
+    s3_uri="s3://<policy-bucket>/<version>/standard.rego",
     s3_version_id="<optional-version-id>",
     expected_hash="sha256:<expected-content-hash>",
     assignments=["all"],
@@ -312,7 +365,7 @@ export const billingInvoicesJson = invoices.responseJson;
 
 ## Notes on endpoint routing
 
-- If `apiBaseUrl` is omitted, the provider derives `https://grid.<tenant_id>.<apex_domain>`.
+- If `apiBaseUrl` is omitted, the provider derives endpoint routing from tenant and apex-domain settings.
 - Keep `apexDomain` default unless your tenant uses a custom domain model.
 
 ## Day-2 operations

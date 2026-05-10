@@ -65,7 +65,7 @@ Set your environment values:
 ```bash
 export THOTH_TENANT_ID="<tenant-id>"
 export THOTH_APEX_DOMAIN="<apex-domain>"
-export THOTH_GOVAPI_BASE="https://govapi.${THOTH_TENANT_ID}.${THOTH_APEX_DOMAIN}"
+export THOTH_GOVAPI_BASE="https://<thoth-control-plane-host>"
 export THOTH_AUTH_SESSION_FILE="/path/to/thoth-admin-session.jwt"
 ```
 
@@ -93,7 +93,7 @@ thothctl auth login \
 ```
 
 `--apex-domain` and `--auth-token-file` are optional overrides. Defaults are
-`atensecurity.com` and `~/.thoth/admin-token.jwt`.
+your configured control-plane domain and `~/.thoth/admin-token.jwt`.
 
 Optional: add `--customer-domain "<customer-domain>"` if the domain should be
 different from the domain in `--admin-email`.

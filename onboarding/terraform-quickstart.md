@@ -24,7 +24,7 @@ You will deploy:
 - Terraform `>= 1.5`
 - Access to an organization-scoped Thoth API key
 - Tenant ID (for example `acme-dev`)
-- Optional apex domain if not using `atensecurity.com`
+- Optional apex domain if not using your default control-plane domain
 
 Policy template baselines live in:
 
@@ -44,6 +44,11 @@ cp <path-to-thoth-runbooks>/policy-templates/sidecar-starter-packs/opa-standard-
 cp <path-to-thoth-runbooks>/policy-templates/sidecar-starter-packs/cedar-least-privilege-analyst.cedar ./policies/
 ```
 
+Policy preflight checks for onboarding:
+
+- OPA policy must include conditions over `input.principal`, `input.action`, and `input.context`.
+- Cedar policy must include at least one `permit(...)` or `forbid(...)` statement.
+
 Create `main.tf`:
 
 ```hcl
@@ -53,7 +58,7 @@ terraform {
   required_providers {
     thoth = {
       source  = "atensecurity/thoth"
-      version = ">= 0.1.6"
+      version = ">= 0.1.7"
     }
   }
 }
@@ -124,7 +129,7 @@ resource "thoth_policy_bundle" "standard_dlp_opa" {
 # resource "thoth_policy_bundle" "enterprise_standard" {
 #   name          = "global-governance"
 #   framework     = "OPA"
-#   s3_uri        = "s3://atensec-governance-us-west-2/v2.4.1/standard.rego"
+#   s3_uri        = "s3://<policy-bucket>/<version>/standard.rego"
 #   s3_version_id = "3Lg....optionalVersionId"
 #   expected_hash = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 #   assignments   = ["all"]
@@ -179,7 +184,7 @@ variable "regulatory_regimes" {
 
 variable "apex_domain" {
   type    = string
-  default = "atensecurity.com"
+  default = "example.com"
 }
 
 variable "webhook_url" {
@@ -212,7 +217,7 @@ Use environment variables instead of committing `*.tfvars` with secrets.
 ```bash
 export TF_VAR_tenant_id="<TENANT_ID>"
 export TF_VAR_org_api_key="<THOTH_ORG_API_KEY>"
-export TF_VAR_apex_domain="atensecurity.com"
+export TF_VAR_apex_domain="<APEX_DOMAIN>"
 export THOTH_API_KEY="<THOTH_ORG_API_KEY>"
 export THOTH_TENANT_ID="<TENANT_ID>"
 
@@ -231,7 +236,7 @@ Notes:
 
 - `THOTH_API_KEY` must be an organization-scoped key.
 - `THOTH_TENANT_ID` lets provider config omit `tenant_id` when desired.
-- If you do not set `api_base_url`, the provider derives it as `https://grid.<tenant_id>.<apex_domain>`.
+- If you do not set `api_base_url`, the provider derives it from `tenant_id` and `apex_domain`.
 
 ## Step 3: init, plan, apply
 

@@ -110,7 +110,7 @@ thothctl governance policy-bundles upsert \
   --tenant-id "<tenant-id>" \
   --name "global-governance" \
   --framework OPA \
-  --s3-uri "s3://atensec-governance-us-west-2/v2.4.1/standard.rego" \
+  --s3-uri "s3://<policy-bucket>/<version>/standard.rego" \
   --s3-version-id "<optional-version-id>" \
   --expected-hash "sha256:<expected-content-hash>" \
   --assignment all \

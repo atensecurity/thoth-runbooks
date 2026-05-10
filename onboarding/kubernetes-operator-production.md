@@ -4,6 +4,9 @@ This runbook is for platform teams running `thoth-operator` in customer or inter
 
 If you are only testing basic install, start with `onboarding/kubernetes-operator.md`. This guide focuses on production operation: version pinning, isolation, upgrades, rollback, and incident handling.
 
+This public version intentionally omits internal break-glass, incident
+escalation, and environment-specific hardening procedures.
+
 ## Target architecture
 
 Recommended production model:
@@ -17,9 +20,9 @@ That split lets cluster teams move quickly without bypassing platform guardrails
 
 - Kubernetes 1.28+
 - Helm 3.13+
-- Outbound network access to `https://grid.<tenant_id>.atensecurity.com`
+- Outbound network access to `https://<thoth-control-plane-host>`
 - One namespace dedicated to operator runtime (`thoth-system`)
-- Admin bearer token for target tenant in a Kubernetes Secret
+- Admin auth token for target tenant in a Kubernetes Secret
 
 ## Step 1: create namespace and baseline controls
 
@@ -88,7 +91,7 @@ Create Thoth admin token secret:
 
 ```bash
 kubectl -n thoth-system create secret generic thoth-admin-token \
-  --from-literal=token='<THOTH_ADMIN_BEARER_TOKEN>'
+  --from-literal=token='<THOTH_ADMIN_AUTH_TOKEN>'
 ```
 
 For MDM providers, store their API tokens in separate secrets. Keep each integration token isolated.
@@ -99,11 +102,11 @@ For MDM providers, store their API tokens in separate secrets. Keep each integra
 apiVersion: platform.atensecurity.com/v1alpha1
 kind: ThothTenant
 metadata:
-  name: tenant-prod
+  name: "<tenant-name>"
   namespace: thoth-system
 spec:
-  tenantId: tenant-prod
-  apexDomain: atensecurity.com
+  tenantId: "<tenant-id>"
+  apexDomain: "<apex-domain>"
   authSecretRef:
     name: thoth-admin-token
     key: token
@@ -117,15 +120,15 @@ spec:
 ```
 
 ```bash
-kubectl apply -f thothtenant-prod.yaml
+kubectl apply -f thothtenant-<tenant-id>.yaml
 ```
 
 ## Step 6: verify health and reconcile status
 
 ```bash
 kubectl -n thoth-system get deploy,pods
-kubectl -n thoth-system get thothtenant tenant-prod -o yaml
-kubectl -n thoth-system describe thothtenant tenant-prod
+kubectl -n thoth-system get thothtenant "<tenant-name>" -o yaml
+kubectl -n thoth-system describe thothtenant "<tenant-name>"
 kubectl -n thoth-system logs deploy/thoth-operator --tail=200
 ```
 
@@ -211,7 +214,7 @@ clusters/
   prod/
     thoth-system/
       helmrelease-thoth-operator.yaml
-      thothtenant-tenant-prod.yaml
+      thothtenant-<tenant-id>.yaml
       secrets/
 ```
 
