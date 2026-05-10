@@ -22,7 +22,7 @@ Use it when you need to:
 ## Prerequisites
 
 - `thothctl` installed
-- Current stable Thoth binary line (`thoth` + `thothctl`): `v0.3.2`
+- Current stable Thoth binary line (`thoth` + `thothctl`): `v0.3.3`
 - tenant ID
 - admin email for SSO login
 - optional org API key for non-interactive calls
