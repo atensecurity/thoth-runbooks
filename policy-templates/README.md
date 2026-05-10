@@ -26,6 +26,9 @@ They are intentionally generic and public-safe:
   - SOC2-style baseline profile for a two-agent pilot.
 - `healthcare-two-agent-pilot/`
   - HIPAA-style baseline profile for a two-agent pilot.
+- `sidecar-starter-packs/`
+  - Reusable OPA/Cedar policy bundles for multi-tenant onboarding.
+  - Includes assignment patterns for `all` and explicit agent-scoped targets.
 
 Each template contains:
 

@@ -32,6 +32,7 @@ Operational runbooks for running Thoth in headless deployments and integrations.
 - `policy-templates/` — public-safe starter policy bundles for early pilots
   - `policy-templates/fintech-two-agent-pilot/`
   - `policy-templates/healthcare-two-agent-pilot/`
+  - `policy-templates/sidecar-starter-packs/`
 
 ## Audience
 

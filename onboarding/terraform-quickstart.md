@@ -16,6 +16,7 @@ You will deploy:
 - One MDM provider integration.
 - One MDM sync run.
 - One policy-pack assignment baseline with deterministic controls.
+- Versioned OPA/Cedar policy bundles for sidecar enforcement.
 - One policy sync run.
 
 ## Prerequisites
@@ -29,12 +30,18 @@ Policy template baselines live in:
 
 - `policy-templates/fintech-two-agent-pilot/`
 - `policy-templates/healthcare-two-agent-pilot/`
+- `policy-templates/sidecar-starter-packs/`
 
 ## Step 1: scaffold a working directory
 
 ```bash
 mkdir -p thoth-terraform-quickstart
 cd thoth-terraform-quickstart
+mkdir -p policies
+
+# Copy starter sidecar policies from thoth-runbooks:
+cp <path-to-thoth-runbooks>/policy-templates/sidecar-starter-packs/opa-standard-dlp.rego ./policies/
+cp <path-to-thoth-runbooks>/policy-templates/sidecar-starter-packs/cedar-least-privilege-analyst.cedar ./policies/
 ```
 
 Create `main.tf`:
@@ -46,7 +53,7 @@ terraform {
   required_providers {
     thoth = {
       source  = "atensecurity/thoth"
-      version = "~> 0.1.5"
+      version = "~> 0.1.6"
     }
   }
 }
@@ -59,6 +66,7 @@ provider "thoth" {
 
 resource "thoth_governance_settings" "baseline" {
   compliance_profile = "soc2"
+  regulatory_regimes = var.regulatory_regimes
 
   # Week 1 shadow-first defaults
   shadow_low      = "allow"
@@ -104,6 +112,34 @@ resource "thoth_pack_assignment_bulk" "pilot_controls" {
   trigger = "pilot-controls-v1"
 }
 
+resource "thoth_policy_bundle" "standard_dlp_opa" {
+  name        = "standard-dlp"
+  description = "Customer-agnostic purpose/sensitivity DLP baseline"
+  framework   = "OPA"
+  raw_policy  = file("${path.module}/policies/opa-standard-dlp.rego")
+  enforcement_mode = "enforce"
+}
+
+# Optional: source policy from versioned S3 instead of local file.
+# resource "thoth_policy_bundle" "enterprise_standard" {
+#   name          = "global-governance"
+#   framework     = "OPA"
+#   s3_uri        = "s3://atensec-governance-us-west-2/v2.4.1/standard.rego"
+#   s3_version_id = "3Lg....optionalVersionId"
+#   expected_hash = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+#   assignments   = ["all"]
+#   enforcement_mode = "enforce"
+# }
+
+resource "thoth_policy_bundle" "least_privilege_cedar" {
+  name        = "least-privilege-analyst"
+  description = "Least-privilege baseline for selected analyst/coding agents"
+  framework   = "CEDAR"
+  raw_policy  = file("${path.module}/policies/cedar-least-privilege-analyst.cedar")
+  assignments = ["agent:security-analyst-agent", "agent:coding-agent"]
+  enforcement_mode = "enforce"
+}
+
 resource "thoth_policy_sync" "baseline" {
   trigger               = "initial-baseline-with-packs"
   wait_for_completion   = true
@@ -111,7 +147,9 @@ resource "thoth_policy_sync" "baseline" {
   timeout_seconds       = 180
 
   depends_on = [
-    thoth_pack_assignment_bulk.pilot_controls
+    thoth_pack_assignment_bulk.pilot_controls,
+    thoth_policy_bundle.standard_dlp_opa,
+    thoth_policy_bundle.least_privilege_cedar
   ]
 }
 ```
@@ -131,6 +169,12 @@ variable "org_api_key" {
 variable "pilot_pack_ids" {
   type        = list(string)
   description = "Compliance packs to apply for pilot controls"
+}
+
+variable "regulatory_regimes" {
+  type        = list(string)
+  description = "Explicit regimes for baseline regulatory pack loading."
+  default     = ["soc2"]
 }
 
 variable "apex_domain" {
@@ -174,6 +218,7 @@ export THOTH_TENANT_ID="<TENANT_ID>"
 
 # Choose packs from `thothctl governance packs` output:
 export TF_VAR_pilot_pack_ids='["<pack-id-1>","<pack-id-2>"]'
+export TF_VAR_regulatory_regimes='["soc2"]'
 
 export TF_VAR_webhook_url="https://example.internal/hooks/thoth"
 export TF_VAR_webhook_secret="<WEBHOOK_SECRET>"
@@ -205,7 +250,7 @@ terraform state list
 terraform show
 
 # Verify pack assignment + runtime status
-thothctl governance runtime-status --tenant-id "$TF_VAR_tenant_id" --environment dev --json
+thothctl governance runtime-status --tenant-id "$TF_VAR_tenant_id" --json
 thothctl governance day7-report --tenant-id "$TF_VAR_tenant_id" --days 7 --json
 
 # Verify evidence-chain integrity
@@ -220,6 +265,8 @@ You should see these resources in state:
 - `thoth_mdm_provider.jamf`
 - `thoth_mdm_sync.jamf_sync`
 - `thoth_pack_assignment_bulk.pilot_controls`
+- `thoth_policy_bundle.standard_dlp_opa`
+- `thoth_policy_bundle.least_privilege_cedar`
 - `thoth_policy_sync.baseline`
 
 ## Importing existing resources into Terraform

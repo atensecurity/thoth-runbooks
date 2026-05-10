@@ -34,12 +34,14 @@ Select one starter template and adapt placeholders:
 
 - `policy-templates/fintech-two-agent-pilot/`
 - `policy-templates/healthcare-two-agent-pilot/`
+- `policy-templates/sidecar-starter-packs/` (OPA/Cedar sidecar bundles)
 
 Template files:
 
 - `principals.yaml`
 - `resources.yaml`
 - `grants.yaml`
+- OPA/Cedar starter policy files in `sidecar-starter-packs/`
 
 Use the template values as your source of truth for:
 
@@ -64,6 +66,7 @@ thothctl auth login \
 thothctl bootstrap \
   --tenant-id "<tenant-id>" \
   --compliance-profile soc2 \
+  --regulatory-regime soc2 \
   --shadow-low allow \
   --shadow-medium allow \
   --shadow-high step_up \
@@ -87,10 +90,38 @@ thothctl governance apply-packs \
   --json
 ```
 
-4. Verify runtime and evidence:
+4. Optional: upsert framework-native sidecar policies:
 
 ```bash
-thothctl governance runtime-status --tenant-id "<tenant-id>" --environment dev --json
+thothctl governance policy-bundles upsert \
+  --tenant-id "<tenant-id>" \
+  --name "standard-dlp" \
+  --framework OPA \
+  --raw-policy-file ./policy-templates/sidecar-starter-packs/opa-standard-dlp.rego \
+  --assignment all \
+  --enforcement-mode enforce \
+  --json
+```
+
+Or source policy directly from versioned S3 objects:
+
+```bash
+thothctl governance policy-bundles upsert \
+  --tenant-id "<tenant-id>" \
+  --name "global-governance" \
+  --framework OPA \
+  --s3-uri "s3://atensec-governance-us-west-2/v2.4.1/standard.rego" \
+  --s3-version-id "<optional-version-id>" \
+  --expected-hash "sha256:<expected-content-hash>" \
+  --assignment all \
+  --enforcement-mode enforce \
+  --json
+```
+
+5. Verify runtime and evidence:
+
+```bash
+thothctl governance runtime-status --tenant-id "<tenant-id>" --json
 thothctl governance day7-report --tenant-id "<tenant-id>" --days 7 --json
 thothctl evidence verify --tenant-id "<tenant-id>" --json
 thothctl evidence chain --tenant-id "<tenant-id>" --limit 100 --json
@@ -99,9 +130,11 @@ thothctl evidence chain --tenant-id "<tenant-id>" --limit 100 --json
 ## Option B: Initialize with Terraform
 
 1. Define provider + baseline resources from `onboarding/terraform-quickstart.md`.
+   Include explicit `regulatory_regimes` in `thoth_governance_settings` (defaults to `["soc2"]` if omitted).
 2. Add `thoth_pack_assignment_bulk` with deterministic controls.
-3. Add `thoth_policy_sync` dependency on pack assignment.
-4. Run:
+3. Add `thoth_policy_bundle` resources for OPA/Cedar sidecars.
+4. Add `thoth_policy_sync` dependency on both pack assignment and policy bundles.
+5. Run:
 
 ```bash
 terraform init
@@ -113,7 +146,7 @@ terraform apply tfplan
 5. Verify:
 
 ```bash
-thothctl governance runtime-status --tenant-id "<tenant-id>" --environment dev --json
+thothctl governance runtime-status --tenant-id "<tenant-id>" --json
 thothctl governance day7-report --tenant-id "<tenant-id>" --days 7 --json
 thothctl evidence verify --tenant-id "<tenant-id>" --json
 ```

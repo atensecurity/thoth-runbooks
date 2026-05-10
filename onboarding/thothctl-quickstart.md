@@ -14,9 +14,10 @@ Use it when you need to:
 1. authenticate an admin session,
 2. apply a governance baseline,
 3. apply governance packs with deterministic controls,
-4. optionally upsert MDM and trigger sync,
-5. validate runtime key scope,
-6. inspect runtime status, reports, and evidence.
+4. optionally upsert policy sidecar bundles (OPA/Cedar),
+5. optionally upsert MDM and trigger sync,
+6. inspect runtime status, reports, and evidence,
+7. validate runtime key scope.
 
 ## Prerequisites
 
@@ -31,6 +32,7 @@ Policy template baselines live in:
 
 - `policy-templates/fintech-two-agent-pilot/`
 - `policy-templates/healthcare-two-agent-pilot/`
+- `policy-templates/sidecar-starter-packs/`
 
 ## 1) Sanity check local CLI
 
@@ -45,6 +47,7 @@ thothctl manual | head -n 40
 export THOTH_TENANT_ID="<tenant-id>"
 export THOTH_APEX_DOMAIN="atensecurity.com"
 export THOTH_ADMIN_EMAIL="<admin@customer-domain>"
+export THOTH_REGULATORY_REGIMES_CSV="soc2"
 
 # Optional for non-interactive calls after initial login:
 export THOTH_ORG_API_KEY="<org-api-key>"
@@ -72,6 +75,7 @@ Week 1 (shadow-first) baseline for pilots:
 thothctl bootstrap \
   --tenant-id "$THOTH_TENANT_ID" \
   --compliance-profile soc2 \
+  --regulatory-regime soc2 \
   --shadow-low allow \
   --shadow-medium allow \
   --shadow-high step_up \
@@ -85,6 +89,7 @@ Week 2 (selective enforcement) baseline:
 thothctl bootstrap \
   --tenant-id "$THOTH_TENANT_ID" \
   --compliance-profile soc2 \
+  --regulatory-regime soc2 \
   --shadow-low allow \
   --shadow-medium step_up \
   --shadow-high block \
@@ -97,11 +102,18 @@ Add webhook wiring if needed:
 ```bash
 thothctl bootstrap \
   --tenant-id "$THOTH_TENANT_ID" \
+  --regulatory-regime soc2 \
   --webhook-url "https://example.internal/hooks/thoth" \
   --webhook-secret "<webhook-secret>" \
   --webhook-enabled true \
   --json
 ```
+
+Notes:
+
+- `compliance-profile` selects an opinionated baseline preset.
+- `regulatory-regime` declares the explicit legal/compliance obligations that drive baseline regulatory pack loading.
+- If no `regulatory-regime` is set, GovAPI defaults to `soc2`.
 
 ## 5) Apply governance packs with deterministic controls
 
@@ -149,7 +161,60 @@ thothctl governance apply-packs \
   --json
 ```
 
-## 6) Optional: upsert MDM and trigger sync
+## 6) Optional: add OPA/Cedar sidecar bundles
+
+Use these starter packs to keep policy-as-code onboarding reusable across customers.
+
+Apply an OPA bundle globally:
+
+```bash
+thothctl governance policy-bundles upsert \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --name "standard-dlp" \
+  --framework OPA \
+  --raw-policy-file ./policy-templates/sidecar-starter-packs/opa-standard-dlp.rego \
+  --assignment all \
+  --enforcement-mode enforce \
+  --json
+```
+
+Apply an S3-hosted OPA bundle with integrity pinning:
+
+```bash
+thothctl governance policy-bundles upsert \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --name "global-governance" \
+  --framework OPA \
+  --s3-uri "s3://atensec-governance-us-west-2/v2.4.1/standard.rego" \
+  --s3-version-id "<optional-version-id>" \
+  --expected-hash "sha256:<expected-content-hash>" \
+  --assignment all \
+  --enforcement-mode enforce \
+  --json
+```
+
+Apply a Cedar bundle for higher-volume customer cohorts:
+
+```bash
+thothctl governance policy-bundles upsert \
+  --tenant-id "$THOTH_TENANT_ID" \
+  --name "least-privilege-analyst" \
+  --framework CEDAR \
+  --raw-policy-file ./policy-templates/sidecar-starter-packs/cedar-least-privilege-analyst.cedar \
+  --assignment agent:security-analyst-agent \
+  --assignment agent:coding-agent \
+  --enforcement-mode enforce \
+  --json
+```
+
+Inspect and rollback if needed:
+
+```bash
+thothctl governance policy-bundles list --tenant-id "$THOTH_TENANT_ID" --json
+thothctl governance policy-bundles rollback --tenant-id "$THOTH_TENANT_ID" --bundle-id "<bundle-id>" --json
+```
+
+## 7) Optional: upsert MDM and trigger sync
 
 Jamf example:
 
@@ -169,11 +234,11 @@ Then check MDM status:
 thothctl mdm list --tenant-id "$THOTH_TENANT_ID" --json
 ```
 
-## 7) Inspect runtime status and reports
+## 8) Inspect runtime status and reports
 
 ```bash
 thothctl settings get --tenant-id "$THOTH_TENANT_ID" --json
-thothctl governance runtime-status --tenant-id "$THOTH_TENANT_ID" --environment dev --json
+thothctl governance runtime-status --tenant-id "$THOTH_TENANT_ID" --json
 thothctl governance day7-report --tenant-id "$THOTH_TENANT_ID" --days 7 --json
 thothctl governance reports-overview --tenant-id "$THOTH_TENANT_ID" --days 30 --json
 thothctl approvals tools --tenant-id "$THOTH_TENANT_ID" --json
@@ -197,7 +262,7 @@ thothctl billing estimate --tenant-id "$THOTH_TENANT_ID" --json
 thothctl billing credit-bank --tenant-id "$THOTH_TENANT_ID" --json
 ```
 
-## 8) Issue and validate a scoped runtime key
+## 9) Issue and validate a scoped runtime key
 
 Create key for one fleet:
 
@@ -223,7 +288,7 @@ thothctl api-keys authorize \
   --json
 ```
 
-## 9) Common failure modes
+## 10) Common failure modes
 
 `HTTP 401` during admin actions:
 
@@ -245,7 +310,7 @@ thothctl api-keys authorize \
 
 - Confirm baseline + pack assignment applied, then verify `governance runtime-status` and approvals feed outputs.
 
-## 10) Move from CLI-first to managed lifecycle
+## 11) Move from CLI-first to managed lifecycle
 
 After initial bootstrap, move long-lived config into one of these:
 

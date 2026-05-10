@@ -12,6 +12,7 @@ You will deploy:
 - Tenant baseline governance and webhook settings.
 - One MDM provider integration.
 - One MDM sync run.
+- Versioned OPA/Cedar policy bundles for sidecar enforcement.
 
 ## Prerequisites
 
@@ -25,7 +26,7 @@ You will deploy:
 mkdir -p thoth-pulumi-nodejs
 cd thoth-pulumi-nodejs
 pulumi new nodejs --yes
-npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.4
+npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.6
 ```
 
 Replace `index.ts` with:
@@ -39,6 +40,9 @@ const cfg = new pulumi.Config();
 const tenantId = cfg.require("tenantId");
 const webhookUrl = cfg.require("webhookUrl");
 const webhookSecret = cfg.requireSecret("webhookSecret");
+const regulatoryRegimes = cfg.getObject<string[]>("regulatoryRegimes") ?? [
+  "soc2",
+];
 
 const provider = new thoth.Provider("thoth", {
   tenantId,
@@ -48,12 +52,13 @@ const governanceSettings = new thoth.governance.GovernanceSettings(
   "baseline-governance",
   {
     complianceProfile: "soc2",
+    regulatoryRegimes,
     shadowLow: "allow",
     shadowMedium: "step_up",
     shadowHigh: "block",
     shadowCritical: "block",
   },
-  { provider }
+  { provider },
 );
 
 new thoth.governance.WebhookSettings(
@@ -63,7 +68,7 @@ new thoth.governance.WebhookSettings(
     webhookUrl,
     webhookSecret,
   },
-  { provider }
+  { provider },
 );
 
 const mdmProvider = new thoth.mdm.Provider(
@@ -78,7 +83,7 @@ const mdmProvider = new thoth.mdm.Provider(
       client_secret: cfg.requireSecret("jamfClientSecret"),
     }),
   },
-  { provider }
+  { provider },
 );
 
 new thoth.mdm.Sync(
@@ -88,10 +93,55 @@ new thoth.mdm.Sync(
     waitForCompletion: true,
     timeoutSeconds: 180,
   },
-  { provider }
+  { provider },
+);
+
+const standardDlpOpa = new thoth.governance.PolicyBundle(
+  "standard-dlp-opa",
+  {
+    name: "standard-dlp",
+    description: "Customer-agnostic purpose/sensitivity DLP baseline",
+    framework: "OPA",
+    rawPolicy: `package thoth.policies.standard_dlp
+default allow := true
+allow if { input.principal.id != ""; input.action != ""; input.context.purpose != "" }`,
+    enforcementMode: "enforce",
+  },
+  { provider },
+);
+
+const enterpriseStandard = new thoth.governance.PolicyBundle(
+  "enterprise-standard",
+  {
+    name: "global-governance",
+    framework: "OPA",
+    s3Uri: "s3://atensec-governance-us-west-2/v2.4.1/standard.rego",
+    s3VersionId: "<optional-version-id>",
+    expectedHash: "sha256:<expected-content-hash>",
+    assignments: ["all"],
+    enforcementMode: "enforce",
+  },
+  { provider },
+);
+
+const leastPrivilegeCedar = new thoth.governance.PolicyBundle(
+  "least-privilege-cedar",
+  {
+    name: "least-privilege-analyst",
+    description: "Least-privilege baseline for selected agents",
+    framework: "CEDAR",
+    rawPolicy: `permit(principal, action, resource) when { context.purpose != ""; context.action != ""; };`,
+    assignments: ["agent:security-analyst-agent", "agent:coding-agent"],
+    enforcementMode: "enforce",
+  },
+  { provider },
 );
 
 export const tenant = governanceSettings.tenantId;
+export const policyBundleIds = {
+  standardDlpOpa: standardDlpOpa.id,
+  leastPrivilegeCedar: leastPrivilegeCedar.id,
+};
 ```
 
 Set config values:
@@ -100,6 +150,7 @@ Set config values:
 pulumi config set tenantId "<TENANT_ID>"
 pulumi config set webhookUrl "https://example.internal/hooks/thoth"
 pulumi config set --secret webhookSecret "<WEBHOOK_SECRET>"
+pulumi config set --path 'regulatoryRegimes[0]' "soc2"
 pulumi config set jamfBaseUrl "https://example.jamfcloud.com"
 pulumi config set jamfClientId "<JAMF_CLIENT_ID>"
 pulumi config set --secret jamfClientSecret "<JAMF_CLIENT_SECRET>"
@@ -129,7 +180,7 @@ thothctl evidence chain --tenant-id "<TENANT_ID>" --limit 100 --json
 mkdir -p thoth-pulumi-python
 cd thoth-pulumi-python
 pulumi new python --yes
-pip install pulumi pulumi-thoth==0.1.4
+pip install pulumi pulumi-thoth==0.1.6
 ```
 
 Replace `__main__.py` with:
@@ -150,6 +201,7 @@ provider = thoth.Provider(
 governance_settings = thoth.governance.GovernanceSettings(
     "baseline-governance",
     compliance_profile="soc2",
+    regulatory_regimes=config.get_object("regulatoryRegimes") or ["soc2"],
     shadow_low="allow",
     shadow_medium="step_up",
     shadow_high="block",
@@ -188,7 +240,51 @@ thoth.mdm.Sync(
     opts=pulumi.ResourceOptions(provider=provider),
 )
 
+standard_dlp_opa = thoth.governance.PolicyBundle(
+    "standard-dlp-opa",
+    name="standard-dlp",
+    description="Customer-agnostic purpose/sensitivity DLP baseline",
+    framework="OPA",
+    raw_policy=(
+        "package thoth.policies.standard_dlp\\n"
+        "default allow := true\\n"
+        "allow if { input.principal.id != \\\"\\\"; input.action != \\\"\\\"; input.context.purpose != \\\"\\\" }"
+    ),
+    enforcement_mode="enforce",
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+
+least_privilege_cedar = thoth.governance.PolicyBundle(
+    "least-privilege-cedar",
+    name="least-privilege-analyst",
+    description="Least-privilege baseline for selected agents",
+    framework="CEDAR",
+    raw_policy="permit(principal, action, resource) when { context.purpose != \\\"\\\"; context.action != \\\"\\\"; };",
+    assignments=["agent:security-analyst-agent", "agent:coding-agent"],
+    enforcement_mode="enforce",
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+
+enterprise_standard = thoth.governance.PolicyBundle(
+    "enterprise-standard",
+    name="global-governance",
+    framework="OPA",
+    s3_uri="s3://atensec-governance-us-west-2/v2.4.1/standard.rego",
+    s3_version_id="<optional-version-id>",
+    expected_hash="sha256:<expected-content-hash>",
+    assignments=["all"],
+    enforcement_mode="enforce",
+    opts=pulumi.ResourceOptions(provider=provider),
+)
+
 pulumi.export("tenant", governance_settings.tenant_id)
+pulumi.export(
+    "policyBundleIds",
+    {
+        "standardDlpOpa": standard_dlp_opa.id,
+        "leastPrivilegeCedar": least_privilege_cedar.id,
+    },
+)
 ```
 
 Set config and deploy:
