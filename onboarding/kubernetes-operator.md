@@ -48,12 +48,35 @@ metadata:
 spec:
   tenantId: tenant-a
   apexDomain: "<apex-domain>"
+  authMode: auto
   authSecretRef:
     name: thoth-admin-token
     key: token
   settings:
     enforceMcpPolicies: true
     approvalMode: "step_up"
+  policyBundles:
+    - name: trantor-mutual-global-dlp
+      framework: OPA
+      sourceUri: s3://thoth-policy-bundles/trantor/global-dlp/policy.rego
+      assignments:
+        - agent:coding-agent
+        - agent:security-analyst-agent
+      status: active
+      enforcementMode: enforce
+  packAssignments:
+    - packIds:
+        - soc2-type2
+      allAgents: true
+      mismatchBoost: 0.15
+      delegationBoost: 0.10
+      trustFloor: 0.35
+      criticalThreshold: 0.85
+  decisionMetadataExport:
+    enabled: true
+    intervalMinutes: 30
+    batchLimit: 1000
+    lookbackHours: 24
   policySync: true
 ```
 
@@ -77,7 +100,23 @@ Healthy state indicators:
 
 ## MDM Provider (Optional)
 
-Add `mdmProvider` to `spec` and store provider token in a Kubernetes Secret. Do not place MDM credentials directly in CR YAML.
+Add `mdmProvider` and optional `mdmSync` to `spec`, and store provider token in a Kubernetes Secret. Do not place MDM credentials directly in CR YAML.
+
+## Decision metadata export (Optional)
+
+If you set `decisionMetadataExport`, the operator exports redacted metadata only:
+
+- Raw content and tool arguments are omitted.
+- User, session, and principal identifiers are hashed.
+- Policy/trace metadata is preserved for analytics and model-training pipelines.
+- By default, batches are collected at:
+  `POST /:tenant-id/thoth/governance/moses/training/decision-metadata/collect`.
+- In customer stacks, GovAPI exports collected batches into
+  `s3://$MOSES_FEEDBACK_BUCKET/$MOSES_FEEDBACK_PREFIX/<tenant>/...` for MOSES
+  retraining ingestion when `THOTH_MOSES_FEEDBACK_EXPORT_ENABLED=true` (default).
+
+Set `decisionMetadataExport.destinationUrl` only if you need to send to an external collector.
+Use `decisionMetadataExport.authTokenSecretRef` when that external destination requires bearer auth.
 
 ## Operational Guidance
 

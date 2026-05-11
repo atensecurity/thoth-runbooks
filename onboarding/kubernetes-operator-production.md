@@ -107,6 +107,7 @@ metadata:
 spec:
   tenantId: "<tenant-id>"
   apexDomain: "<apex-domain>"
+  authMode: auto
   authSecretRef:
     name: thoth-admin-token
     key: token
@@ -116,6 +117,32 @@ spec:
     shadowMedium: "step_up"
     shadowHigh: "block"
     shadowCritical: "block"
+  webhookSettings:
+    enabled: true
+    url: "https://hooks.example.com/thoth"
+    testWebhookOnApply: true
+  policyBundles:
+    - name: trantor-mutual-global-dlp
+      framework: OPA
+      sourceUri: s3://thoth-policy-bundles/trantor/global-dlp/policy.rego
+      assignments:
+        - agent:coding-agent
+        - agent:security-analyst-agent
+      status: active
+      enforcementMode: enforce
+  packAssignments:
+    - packIds:
+        - soc2-type2
+      allAgents: true
+      mismatchBoost: 0.15
+      delegationBoost: 0.10
+      trustFloor: 0.35
+      criticalThreshold: 0.85
+  decisionMetadataExport:
+    enabled: true
+    intervalMinutes: 30
+    batchLimit: 1000
+    lookbackHours: 24
   policySync: true
 ```
 
@@ -148,6 +175,14 @@ Good rotation sequence:
 4. Confirm tenant status returns to `Ready`.
 
 The controller watches referenced secret names and should reconcile quickly after updates.
+
+For external decision-metadata collectors, rotate the destination bearer token by updating
+`decisionMetadataExport.authTokenSecretRef` (or the referenced secret value).
+If `destinationUrl` is omitted, the operator uses the internal Moses collector path:
+`POST /:tenant-id/thoth/governance/moses/training/decision-metadata/collect`.
+With default customer-stack runtime settings, GovAPI then exports collected
+batches to `s3://$MOSES_FEEDBACK_BUCKET/$MOSES_FEEDBACK_PREFIX/<tenant>/...`
+for MOSES training ingestion.
 
 ## Upgrade workflow
 
@@ -192,6 +227,12 @@ If tenants stop reconciling:
 3. Check network egress to Thoth endpoint.
 4. Check `ThothTenant` conditions and latest events.
 5. Check whether policy sync calls are timing out.
+
+If policy bundles apply but do not appear in runtime decisions:
+
+1. Check `status.lastPolicyBundleApplyAt`.
+2. Confirm `policySync` is enabled and `status.lastPolicySyncAt` updates.
+3. Check enforcer configuration for policy-sync support.
 
 If behavior unexpectedly shifts to more blocking:
 

@@ -80,7 +80,7 @@ Keep rollout trigger strings explicit so you can trace exactly which change exec
 
 ## Operator path
 
-Apply `settings` and `policySync: true` in `ThothTenant`.
+Apply `settings`, `policyBundles`, and `policySync: true` in `ThothTenant`.
 
 Use Git commit history as your rollout audit log.
 
