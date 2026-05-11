@@ -26,7 +26,7 @@ You will deploy:
 mkdir -p thoth-pulumi-nodejs
 cd thoth-pulumi-nodejs
 pulumi new nodejs --yes
-npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.7
+npm install @pulumi/pulumi @atensec/pulumi-thoth@0.1.9
 ```
 
 Replace `index.ts` with:
@@ -207,7 +207,7 @@ thothctl evidence chain --tenant-id "<TENANT_ID>" --limit 100 --json
 mkdir -p thoth-pulumi-python
 cd thoth-pulumi-python
 pulumi new python --yes
-pip install pulumi pulumi-thoth==0.1.7
+pip install pulumi pulumi-thoth==0.1.9
 ```
 
 Replace `__main__.py` with:
