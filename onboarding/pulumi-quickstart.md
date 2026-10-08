@@ -1,5 +1,10 @@
 # Pulumi quickstart for Thoth
 
+For invited developer trials, start with the [developer trial quickstart](https://docs.atensecurity.com/docs/getting-started/trial-quickstart).
+It covers SDK activation and a minimal Pulumi import/update workflow using a
+separate organization read/write key. The broader integrations below are not
+required for that demo.
+
 This runbook shows how to manage Thoth governance resources with Pulumi.
 
 Use this when your teams already deploy infrastructure through Pulumi stacks and want Thoth controls in the same workflow.

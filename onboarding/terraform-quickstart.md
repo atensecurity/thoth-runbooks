@@ -1,5 +1,10 @@
 # Terraform quickstart for Thoth
 
+For invited developer trials, start with the [developer trial quickstart](https://docs.atensecurity.com/docs/getting-started/trial-quickstart).
+It covers SDK activation and a minimal Terraform import/update workflow using a
+separate organization read/write key. The broader integrations below are not
+required for that demo.
+
 This runbook gets you from zero to a working Terraform-managed Thoth tenant baseline.
 
 It assumes:
