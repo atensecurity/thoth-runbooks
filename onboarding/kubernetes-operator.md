@@ -56,9 +56,9 @@ spec:
     enforceMcpPolicies: true
     approvalMode: "step_up"
   policyBundles:
-    - name: trantor-mutual-global-dlp
+    - name: example-global-dlp
       framework: OPA
-      sourceUri: s3://thoth-policy-bundles/trantor/global-dlp/policy.rego
+      sourceUri: s3://thoth-policy-bundles/example/global-dlp/policy.rego
       assignments:
         - agent:coding-agent
         - agent:security-analyst-agent
